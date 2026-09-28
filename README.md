@@ -2,6 +2,7 @@ INTRUCCIONES GENERALES:
 - MAIN estará reservado para entregas finales
 - CADA equipo trabajando en su modulo tendrá su rama siguiendo esta nomenclatura: equipo_# 
 
+```text
 Estructura del proyecto:
 /root
 ├── .github/
@@ -16,7 +17,7 @@ Estructura del proyecto:
         ├── pyproject.toml  # Configuración y dependencias de Poetry
         ├── poetry.lock
         └── Dockerfile
-
+```
 
 CHEAT SHEET: 
 
