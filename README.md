@@ -18,6 +18,9 @@ Estructura del proyecto:
         ├── poetry.lock
         └── Dockerfile
 ```
+Utilizaremos el mismo cluster de Kubernetes que ya teníamos -> Será necesario utilizar un namespace diferente llamado proyecto-final
+PARA CREAR EL NAMESPACE HAY QUE CORRER EL SIGUIENTE COMANDO:
+kubectl create namespace proyecto-final
 
 CHEAT SHEET: 
 
