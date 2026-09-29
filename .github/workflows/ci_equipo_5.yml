@@ -18,5 +18,5 @@ jobs:
       attestations: write
       id-token: write
     steps:
-      name: Hello-world
-      run: echo "$IMAGE_NAME"
+      - name: Hello-world
+        run: echo "$IMAGE_NAME"
