@@ -1,0 +1,22 @@
+name: Backend - Users
+
+on:
+  push:
+  branches:
+    - CI-CD
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  name: First try
+  runs-on: ubuntu-latest
+  permissions:
+    contents: read
+    packages: write
+    attestations: write
+    id-token: write
+  steps:
+    name: Hello-world
+    run: echo "$IMAGE_NAME"
