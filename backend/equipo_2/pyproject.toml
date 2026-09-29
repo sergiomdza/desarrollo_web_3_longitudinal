@@ -1,0 +1,21 @@
+[project]
+name = "equipo2-categorias-ubicaciones"
+version = "0.1.0"
+description = "Microservicio de Categorías & Ubicaciones (Equipo 2)"
+authors = [
+    {name = "DonPedroloDev",email = "AlexTBCG@gmail.com"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi (>=0.141.1,<0.142.0)",
+    "uvicorn (>=0.54.0,<0.55.0)",
+    "pymongo (>=4.18.2,<5.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+package-mode = false
