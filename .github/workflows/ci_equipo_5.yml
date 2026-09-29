@@ -10,13 +10,13 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  name: First try
-  runs-on: ubuntu-latest
-  permissions:
-    contents: read
-    packages: write
-    attestations: write
-    id-token: write
-  steps:
-    name: Hello-world
-    run: echo "$IMAGE_NAME"
+  first try:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      name: Hello-world
+      run: echo "$IMAGE_NAME"
