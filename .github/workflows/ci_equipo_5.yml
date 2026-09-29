@@ -2,8 +2,8 @@ name: Backend - Users
 
 on:
   push:
-  branches:
-    - CI-CD
+    branches:
+      - CI-CD
 
 env:
   REGISTRY: ghcr.io
