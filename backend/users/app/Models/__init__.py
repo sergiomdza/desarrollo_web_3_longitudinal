@@ -1,3 +1,3 @@
-from app.Models.users import UsersCreate, UsersResponse, UsersUpdate
+from app.Models.users import UsersCreate, UsersResponse, UsersUpdate,UsersRoles
 
-__all__ = ["UsersCreate", "UsersResponse", "UsersUpdate"]
+__all__ = ["UsersCreate", "UsersResponse", "UsersUpdate","UsersRoles"]
