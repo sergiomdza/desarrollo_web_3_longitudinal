@@ -16,9 +16,19 @@ def usuario_dict(usuario) -> dict:
     }
 
 
+
+@routers.post("/create")
+async def create_user(user: dict):
+    return {"message": "Usuario creado exitosamente", "user": user}
 # crud de post
 
+@routers.get("/get")
+async def get_users():
+    return {"message": "Usuarios obtenidos exitosamente", "users": []}
 
+@routers.get("/get/{user_id}")
+async def get_user_by_id(user_id: str):
+    return {"message": "Usuario obtenido exitosamente", "user_id": user_id}
 # crud de get
 
 # crud de put
