@@ -16,12 +16,14 @@ MONGO_URI = _required_env("MONGO_URI")
 MONGO_DB_NAME = _required_env("MONGO_DB_NAME")
 CATEGORIAS_COLLECTION = _required_env("CATEGORIAS_COLLECTION")
 UBICACIONES_COLLECTION = _required_env("UBICACIONES_COLLECTION")
+ACTIVOS_COLLECTION = _required_env("ACTIVOS_COLLECTION")
 
 # Mongo DB connection
 mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=3000)
 database = mongo_client[MONGO_DB_NAME]
 categorias = database[CATEGORIAS_COLLECTION]
 ubicaciones = database[UBICACIONES_COLLECTION]
+activos = database[ACTIVOS_COLLECTION]
 
 
 def ping() -> bool:
