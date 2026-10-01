@@ -31,7 +31,13 @@ async def get_user_by_id(user_id: str):
     return {"message": "Usuario obtenido exitosamente", "user_id": user_id}
 # crud de get
 
+
+@routers.put("/update/{user_id}")
+async def update_user(user_id: str, user: dict):
+    return {"message": "Usuario actualizado exitosamente", "user_id": user_id, "user": user}
 # crud de put
 
-
+@routers.delete("/delete/{user_id}")
+async def delete_user(user_id: str):
+    return {"message": "Usuario eliminado exitosamente", "user_id": user_id}
 # crud de delate
