@@ -36,7 +36,7 @@ jobs:
       - name: Build & push
         uses: docker/build-push-action@v6
         with:
-          context: backend/equipo_2
+          context: backend/products
           push: true
           tags: |
             ${{ steps.image.outputs.name }}:${{ steps.image.outputs.short_sha }}
