@@ -1,129 +1,48 @@
-Equipo #1
+# Módulo de Auditorías
 
+## Descripción
 
-## 1. Levantar MongoDB en Kubernetes
+Este módulo implementa una API REST para la administración de auditorías utilizando FastAPI y MongoDB.
 
-Desde la raíz del repositorio, crear el namespace:
+La entidad principal es `Auditoria`, la cual permite registrar información relacionada con una auditoría mediante los siguientes campos:
 
-```bash
-kubectl create namespace proyecto-final
-```
+- `id`: identificador único de la auditoría.
+- `nombre`: nombre o descripción de la auditoría.
+- `usuario`: usuario relacionado con la auditoría.
+- `fecha`: fecha y hora de la auditoría.
 
-> Si el namespace ya existe, no es necesario volver a crearlo.
-
-Aplicar el archivo de MongoDB:
-
-```bash
-kubectl apply -f ./kubernetes/mongo_statefulset.yaml
-```
-
-Verificar que MongoDB esté corriendo:
-
-```bash
-kubectl get pods -n proyecto-final
-```
-
-Verificar el servicio:
-
-```bash
-kubectl get svc -n proyecto-final
-```
+El módulo cuenta con operaciones CRUD, validación de datos mediante Pydantic, conexión a MongoDB mediante variables de entorno, endpoint de salud y métricas para Prometheus.
 
 ---
 
-## 2. Conectarse a MongoDB desde local
+## Endpoints
 
-Abrir el puerto de MongoDB:
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/` | Comprueba que la API de Auditorías está funcionando |
+| GET | `/health` | Comprueba el estado del servicio |
+| GET | `/metrics` | Expone métricas para Prometheus |
+| GET | `/auditorias` | Obtiene todas las auditorías |
+| GET | `/auditorias/{id}` | Obtiene una auditoría por su ID |
+| POST | `/auditorias` | Crea una nueva auditoría |
+| PUT | `/auditorias/{id}` | Actualiza una auditoría existente |
+| DELETE | `/auditorias/{id}` | Elimina una auditoría |
 
-Hacer un port-forward del servicio de mongo al puerto 27017 (Si no deja cambiar el de la clase a 27019)
+---
 
-### MongoDB Compass
-
-Usar la siguiente URI:
+## Estructura del módulo
 
 ```text
-mongodb://admin:web3@localhost:27017/?authSource=admin
-```
-
-Credenciales:
-
-```text
-Usuario: admin
-Contraseña: web3
-```
-
----
-
-## 3. Entrar al módulo de Auditorías
-
-Desde la raíz del repositorio:
-
-```bash
-cd backend/audits
-```
-
-La estructura principal es:
-
-```text
-backend/
-└── audits/
-    ├── app/
-    │   ├── __init__.py
-    │   ├── main.py
-    │   ├── database.py
-    │   └── models.py
-    ├── crear_auditorias.sh
-    ├── README.md
-    ├── pyproject.toml
-    └── poetry.lock
-```
-
----
-
-## 4. Generar la colección y datos iniciales
-
-Desde `backend/audits` ejecutar:
-
-```bash
-bash crear_auditorias.sh
-```
-
-Este script crea la colección `auditorias` e inserta los datos iniciales.
-
----
-
-## 5. Instalar las dependencias
-
-Desde `backend/audits`:
-
-```bash
-poetry install
-```
-
-Las dependencias se encuentran definidas en `pyproject.toml` y `poetry.lock`.
-
----
-
-## 6. Configurar variables de entorno
-
-Crear un archivo `.env` dentro de `backend/audits`:
-
-Agregar:
-
-```env
-MONGO_URI=mongodb://admin:web3@localhost:27017/?authSource=admin
-MONGO_DB=DB_Proyecto
-MONGO_COLLECTION=auditorias
-```
-
-El archivo `.env` no debe subirse al repositorio.
-
----
-
-## 7. Ejecutar la API localmente
-
-Desde `backend/audits`:
-
-```bash
-poetry run uvicorn app.main:app --reload --port 8001
-``
+backend/audits/
+├── app/
+│   ├── __init__.py
+│   ├── database.py
+│   ├── main.py
+│   └── models.py
+├── .dockerignore
+├── .gitignore
+├── crear_auditorias.sh
+├── Dockerfile
+├── poetry.lock
+├── pyproject.toml
+└── README.md
