@@ -1,0 +1,12 @@
+# Configuración no sensible del backend. Mismos valores que
+# backend/products/docker-compose.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: equipo-2
+data:
+  MONGO_DB_NAME: equipo_2
+  CATEGORIAS_COLLECTION: categorias
+  UBICACIONES_COLLECTION: ubicaciones
+  ACTIVOS_COLLECTION: activos

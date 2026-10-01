@@ -1,0 +1,63 @@
+# imagePullPolicy: IfNotPresent -> funciona en cualquier arquitectura (la
+# imagen publicada en GHCR hoy solo tiene build linux/amd64; en una Mac Apple
+# Silicon hay que precargarla al cluster con `kind load docker-image`, igual
+# que en el cheat sheet del README). Tras cada nuevo push a GHCR, corran:
+#   kubectl rollout restart deployment/backend -n equipo-2
+# para que tome la imagen más reciente con el tag `latest`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: equipo-2
+  labels:
+    app: categorias-ubicaciones
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: categorias-ubicaciones
+  template:
+    metadata:
+      labels:
+        app: categorias-ubicaciones
+    spec:
+      containers:
+        - name: categorias-ubicaciones
+          image: ghcr.io/sergiomdza/categorias-ubicaciones:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: MONGO_URI
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: equipo-2
+spec:
+  selector:
+    app: categorias-ubicaciones
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
