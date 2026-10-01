@@ -1,0 +1,22 @@
+[project]
+name = "requests"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Your Name",email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "mongo (>=0.2.0,<0.3.0)",
+    "fastapi (>=0.142.2,<0.143.0)",
+    "uvicorn (>=0.54.0,<0.55.0)",
+    "pymongo (>=4.18.2,<5.0.0)",
+    "prometheus-fastapi-instrumentator (>=8.1.0,<9.0.0)",
+    "python-dotenv (>=1.2.3,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
