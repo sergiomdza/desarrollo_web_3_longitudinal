@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+
+# Entorno y secretos locales
+.env
+.env.*
+
+# Git / editores
+.git
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yaml
