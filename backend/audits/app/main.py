@@ -12,7 +12,7 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 @app.get("/")
 def root():
-    return {"message": "API de Auditorías funcionando"}
+    return {"message": "API del equipo de Auditorías funcionando"}
 
 
 @app.get("/health")
