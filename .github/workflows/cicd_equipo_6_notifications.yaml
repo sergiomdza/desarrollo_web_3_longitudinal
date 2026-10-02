@@ -63,7 +63,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Tags: equipo_6-<run_number> identifica la versión;
-      # equipo_6-latest es la que usa el Deployment de Kubernetes.
+      # equipo_6-latest es la última publicada.
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5

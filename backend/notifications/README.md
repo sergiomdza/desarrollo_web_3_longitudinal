@@ -46,9 +46,9 @@ Desde terminal: `npx newman run postman/notificaciones.postman_collection.json`
 
 ## Kubernetes (kind)
 
-Manifiesto: `kubernetes/equipo_6/backend_deployment.yaml` (ConfigMap,
-Deployment con 2 réplicas y probes en `/health`, Service `notifications-service:8000`).
-Reutiliza `mongo-service` y `mongo-secret` de `kubernetes/mongo_statefulset.yaml`.
+Manifiestos en `kubernetes/notifications/` (ConfigMap, Secret, Deployment con
+2 réplicas y probes en `/health`, Service `notificaciones:80`). Requieren el
+`mongo-service` de `kubernetes/mongo_statefulset.yaml`.
 
 ```bash
 # desde la raíz del repo
@@ -56,19 +56,18 @@ kind create cluster --name web3
 kubectl create namespace proyecto-final
 kubectl apply -f kubernetes/mongo_statefulset.yaml
 
-IMG=ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-notifications:equipo_6-latest
-docker build -t $IMG backend/notifications
-kind load docker-image $IMG --name web3
+docker build -t notificaciones:local backend/notifications
+kind load docker-image notificaciones:local --name web3
 
-kubectl apply -f kubernetes/equipo_6/backend_deployment.yaml
-kubectl -n proyecto-final port-forward svc/notifications-service 8001:8000
+kubectl apply -f kubernetes/notifications/
+kubectl -n proyecto-final port-forward svc/notificaciones 8001:80
 ```
 
-Cada vez que cambie el código: `docker build` + `kind load` + 
-`kubectl -n proyecto-final rollout restart deployment/notifications-api`.
+Cada vez que cambie el código: `docker build` + `kind load` +
+`kubectl -n proyecto-final rollout restart deployment/notificaciones`.
 
 Seeder dentro del cluster:
-`kubectl -n proyecto-final exec deploy/notifications-api -- python scripts/seeder.py`
+`kubectl -n proyecto-final exec deploy/notificaciones -- python scripts/seeder.py`
 
 ## CI/CD
 
@@ -78,7 +77,8 @@ Seeder dentro del cluster:
   `backend/notifications/**` — instala con Poetry y corre `pytest`.
 - **build-and-push-image**: sólo en push a `equipo_6`, si las pruebas pasan.
   Publica en GHCR `…-notifications:equipo_6-<run>` y `:equipo_6-latest`
-  (la que usa el Deployment).
+  (para usarla en el cluster, cambiar `image:` en
+  `kubernetes/notifications/deployment.yaml`).
 
 ## Contrato con Préstamos
 
