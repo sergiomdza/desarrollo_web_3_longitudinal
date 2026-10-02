@@ -48,8 +48,7 @@ spec:
     spec:
       containers:
         - name: reportes-backend
-          # Imagen publicada por el pipeline (ajusta owner/repo/rama)
-          image: ghcr.io/OWNER/REPO:equipo_N-latest
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal:equipo_3-latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
