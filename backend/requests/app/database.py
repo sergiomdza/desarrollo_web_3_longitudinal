@@ -1,6 +1,18 @@
+import os
 from pymongo import MongoClient
 
-#aun no cambio el MongoClient por datos de un .env
-mongo_client = MongoClient("mongodb://admin:web3@localhost:27017/?authSource=admin")
-database = mongo_client["database_proyecto"]
+MONGO_URI = os.getenv(
+    "MONGO_URI",
+    "mongodb://admin:web3@localhost:27017/?authSource=admin"
+)
+
+MONGO_DB_NAME = os.getenv(
+    "MONGO_DB_NAME",
+    "database_proyecto"
+)
+
+mongo_client = MongoClient(MONGO_URI)
+
+database = mongo_client[MONGO_DB_NAME]
+
 requests_collection = database["requests"]

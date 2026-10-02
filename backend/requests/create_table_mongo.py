@@ -4,7 +4,7 @@ client = pymongo.MongoClient("mongodb://admin:web3@localhost:27017/?authSource=a
 
 theDatabase = client ["database_proyecto"]
 
-column = theDatabase["Requests"]
+column = theDatabase["requests"]
 
 tableInserts = [
     {
