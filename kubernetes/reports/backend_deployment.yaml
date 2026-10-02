@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reportes-config
+  namespace: proyecto-final
+data:
+  MONGO_DB: "desarrollo_web_3"
+  MONGO_COLLECTION: "reportes_analitica"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reportes-secret
+  namespace: proyecto-final
+type: Opaque
+stringData:
+  MONGO_URI: "mongodb://admin:web3@mongo-service:27017/?authSource=admin"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: reportes-service
+  namespace: proyecto-final
+spec:
+  selector:
+    app: reportes-backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reportes-backend
+  namespace: proyecto-final
+  labels:
+    app: reportes-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reportes-backend
+  template:
+    metadata:
+      labels:
+        app: reportes-backend
+    spec:
+      containers:
+        - name: reportes-backend
+          # Imagen publicada por el pipeline (ajusta owner/repo/rama)
+          image: ghcr.io/OWNER/REPO:equipo_N-latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: reportes-config
+            - secretRef:
+                name: reportes-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
