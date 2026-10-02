@@ -1,129 +1,95 @@
-Equipo #1
+# Módulo de Auditorías
 
+## Descripción
 
-## 1. Levantar MongoDB en Kubernetes
+Este módulo implementa una API REST para la administración de auditorías utilizando FastAPI y MongoDB.
 
-Desde la raíz del repositorio, crear el namespace:
+La entidad principal es `Auditoria`, la cual permite registrar información relacionada con una auditoría mediante los siguientes campos:
 
-```bash
-kubectl create namespace proyecto-final
-```
+- `id`: identificador único de la auditoría.
+- `nombre`: nombre o descripción de la auditoría.
+- `usuario`: usuario relacionado con la auditoría.
+- `fecha`: fecha y hora de la auditoría.
 
-> Si el namespace ya existe, no es necesario volver a crearlo.
-
-Aplicar el archivo de MongoDB:
-
-```bash
-kubectl apply -f ./kubernetes/mongo_statefulset.yaml
-```
-
-Verificar que MongoDB esté corriendo:
-
-```bash
-kubectl get pods -n proyecto-final
-```
-
-Verificar el servicio:
-
-```bash
-kubectl get svc -n proyecto-final
-```
+El módulo cuenta con operaciones CRUD, validación de datos mediante Pydantic, conexión a MongoDB mediante variables de entorno, endpoint de salud y métricas para Prometheus.
 
 ---
 
-## 2. Conectarse a MongoDB desde local
+## Endpoints
 
-Abrir el puerto de MongoDB:
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/` | Comprueba que la API de Auditorías está funcionando |
+| GET | `/health` | Comprueba el estado del servicio |
+| GET | `/metrics` | Expone métricas para Prometheus |
+| GET | `/auditorias` | Obtiene todas las auditorías |
+| GET | `/auditorias/{id}` | Obtiene una auditoría por su ID |
+| POST | `/auditorias` | Crea una nueva auditoría |
+| PUT | `/auditorias/{id}` | Actualiza una auditoría existente |
+| DELETE | `/auditorias/{id}` | Elimina una auditoría |
 
-Hacer un port-forward del servicio de mongo al puerto 27017 (Si no deja cambiar el de la clase a 27019)
+---
 
-### MongoDB Compass
-
-Usar la siguiente URI:
+## Estructura del módulo
 
 ```text
-mongodb://admin:web3@localhost:27017/?authSource=admin
+backend/audits/
+├── app/
+│   ├── __init__.py
+│   ├── database.py
+│   ├── main.py
+│   └── models.py
+├── .dockerignore
+├── .gitignore
+├── crear_auditorias.sh
+├── Dockerfile
+├── poetry.lock
+├── pyproject.toml
+└── README.md
 ```
 
-Credenciales:
+---
+
+## CI/CD
+
+El workflow [`.github/workflows/cicd_equipo_1_audits.yaml`](../../.github/workflows/cicd_equipo_1_audits.yaml) se ejecuta en cada push a la rama `equipo_1`. Construye la imagen a partir de este directorio y la publica en GitHub Container Registry:
 
 ```text
-Usuario: admin
-Contraseña: web3
+ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-audits
 ```
 
----
+Cada imagen se publica con dos tags:
 
-## 3. Entrar al módulo de Auditorías
+| Tag | Ejemplo | Uso |
+|---|---|---|
+| `equipo_1-<run>` | `equipo_1-12` | Identifica la versión: número de ejecución del pipeline en GitHub Actions |
+| `equipo_1-latest` | `equipo_1-latest` | Última versión publicada; la usa el Deployment |
 
-Desde la raíz del repositorio:
+La imagen también lleva los labels OCI `org.opencontainers.image.revision` (commit) y `org.opencontainers.image.source` (repositorio).
+
+### Despliegue en Kubernetes
+
+El Deployment de [`kubernetes/audits/backend_deployment.yaml`](../../kubernetes/audits/backend_deployment.yaml) usa la imagen publicada por el pipeline con `imagePullPolicy: Always`, por lo que ya no es necesario construir la imagen a mano ni cargarla con `kind load`.
 
 ```bash
-cd backend/audits
+kubectl apply -f kubernetes/audits/backend_deployment.yaml
+
+# Después de que el pipeline publique una nueva imagen:
+kubectl rollout restart deployment/audits-api -n proyecto-final
 ```
 
-La estructura principal es:
-
-```text
-backend/
-└── audits/
-    ├── app/
-    │   ├── __init__.py
-    │   ├── main.py
-    │   ├── database.py
-    │   └── models.py
-    ├── crear_auditorias.sh
-    ├── README.md
-    ├── pyproject.toml
-    └── poetry.lock
-```
-
----
-
-## 4. Generar la colección y datos iniciales
-
-Desde `backend/audits` ejecutar:
+Para fijar o regresar a una versión concreta:
 
 ```bash
-bash crear_auditorias.sh
+kubectl set image deployment/audits-api -n proyecto-final \
+  audits-api=ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-audits:equipo_1-<run>
 ```
 
-Este script crea la colección `auditorias` e inserta los datos iniciales.
-
----
-
-## 5. Instalar las dependencias
-
-Desde `backend/audits`:
+Para ver qué versión está corriendo:
 
 ```bash
-poetry install
+kubectl get pods -n proyecto-final -l app=audits-api \
+  -o jsonpath='{range .items[*]}{.status.containerStatuses[0].imageID}{"\n"}{end}'
 ```
 
-Las dependencias se encuentran definidas en `pyproject.toml` y `poetry.lock`.
-
----
-
-## 6. Configurar variables de entorno
-
-Crear un archivo `.env` dentro de `backend/audits`:
-
-Agregar:
-
-```env
-MONGO_URI=mongodb://admin:web3@localhost:27017/?authSource=admin
-MONGO_DB=DB_Proyecto
-MONGO_COLLECTION=auditorias
-```
-
-El archivo `.env` no debe subirse al repositorio.
-
----
-
-## 7. Ejecutar la API localmente
-
-Desde `backend/audits`:
-
-```bash
-poetry run uvicorn app.main:app --reload --port 8001
-``
+Si los pods quedan en `ImagePullBackOff`, el paquete en GHCR no es público: el dueño del repositorio debe cambiar su visibilidad a *Public* en **Packages → desarrollo_web_3_longitudinal-audits → Package settings**.
