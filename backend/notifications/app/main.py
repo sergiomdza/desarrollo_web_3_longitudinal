@@ -1,13 +1,19 @@
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.middleware.cors import CORSMiddleware
 from pymongo.errors import DuplicateKeyError
 
 from app.db import COLLECTION_NAME, connect_to_mongo, close_mongo, get_database
+from app.eventos import construir_notificaciones, tipos_a_cancelar
 from app.models import (
+    DespachoResponse,
+    EventoPrestamo,
+    EventoPrestamoResponse,
     NotificacionCreate,
     NotificacionListResponse,
     NotificacionResponse,
@@ -31,6 +37,14 @@ app = FastAPI(
     ),
     version="0.1.0",
     lifespan=lifespan,
+)
+
+# Orígenes permitidos para el UI de React, separados por comas.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.getenv("CORS_ORIGINS", "*").split(","),
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -136,6 +150,12 @@ async def list_notifications(
     estado: str | None = Query(
         default=None,
     ),
+    destinatario_id: str | None = Query(
+        default=None,
+    ),
+    prestamo_id: str | None = Query(
+        default=None,
+    ),
 ):
     database = get_database()
     collection = database[COLLECTION_NAME]
@@ -147,6 +167,12 @@ async def list_notifications(
 
     if estado:
         query["estado"] = estado
+
+    if destinatario_id:
+        query["destinatario_id"] = destinatario_id
+
+    if prestamo_id:
+        query["prestamo_id"] = prestamo_id
 
     total = await collection.count_documents(query)
 
@@ -171,6 +197,30 @@ async def list_notifications(
         skip=skip,
         limit=limit,
     )
+
+
+@app.post(
+    "/notificaciones/despachar",
+    response_model=DespachoResponse,
+    summary="Enviar las notificaciones programadas que ya vencieron",
+)
+async def dispatch_notifications():
+    database = get_database()
+    collection = database[COLLECTION_NAME]
+
+    now = datetime.now(timezone.utc)
+
+    # Todavía no hay proveedor real de email/push: "enviar" equivale
+    # a marcar la notificación como enviada.
+    result = await collection.update_many(
+        {
+            "estado": "pendiente",
+            "fecha_programada": {"$lte": now},
+        },
+        {"$set": {"estado": "enviada", "updated_at": now}},
+    )
+
+    return DespachoResponse(despachadas=result.modified_count)
 
 
 @app.get(
@@ -256,6 +306,39 @@ async def update_notification(
     return serialize_notification(document)
 
 
+@app.patch(
+    "/notificaciones/{notification_id}/leida",
+    response_model=NotificacionResponse,
+    summary="Marcar una notificación como leída",
+)
+async def mark_notification_read(
+    notification_id: str,
+):
+    database = get_database()
+    collection = database[COLLECTION_NAME]
+
+    object_id = parse_object_id(notification_id)
+
+    now = datetime.now(timezone.utc)
+
+    result = await collection.update_one(
+        {"_id": object_id},
+        {"$set": {"estado": "leida", "leida_at": now, "updated_at": now}},
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Notificación no encontrada.",
+        )
+
+    document = await collection.find_one(
+        {"_id": object_id}
+    )
+
+    return serialize_notification(document)
+
+
 @app.delete(
     "/notificaciones/{notification_id}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -280,3 +363,58 @@ async def delete_notification(
         )
 
     return None
+
+
+@app.post(
+    "/eventos/prestamos",
+    response_model=EventoPrestamoResponse,
+    summary="Reaccionar a un evento del módulo de Préstamos",
+)
+async def handle_loan_event(
+    evento: EventoPrestamo,
+):
+    database = get_database()
+    collection = database[COLLECTION_NAME]
+
+    now = datetime.now(timezone.utc)
+
+    canceladas = 0
+    tipos = tipos_a_cancelar(evento)
+
+    if tipos:
+        result = await collection.update_many(
+            {
+                "prestamo_id": evento.prestamo_id,
+                "tipo": {"$in": tipos},
+                "estado": "pendiente",
+            },
+            {"$set": {"estado": "cancelada", "updated_at": now}},
+        )
+        canceladas = result.modified_count
+
+    notificaciones = []
+
+    for notification in construir_notificaciones(evento, now):
+        document = notification.model_dump()
+        document["created_at"] = now
+        document["updated_at"] = None
+
+        # $setOnInsert hace el evento idempotente: si Préstamos
+        # reintenta, se devuelve la notificación ya existente.
+        await collection.update_one(
+            {"codigo": notification.codigo},
+            {"$setOnInsert": document},
+            upsert=True,
+        )
+
+        stored = await collection.find_one(
+            {"codigo": notification.codigo}
+        )
+        notificaciones.append(serialize_notification(stored))
+
+    return EventoPrestamoResponse(
+        evento=evento.evento,
+        prestamo_id=evento.prestamo_id,
+        notificaciones=notificaciones,
+        canceladas=canceladas,
+    )
