@@ -79,9 +79,8 @@ Los manifiestos de Categorías & Ubicaciones viven en `kubernetes/equipo_2/`:
 | Archivo                   | Qué hace                                             |
 | ------------------------- | ---------------------------------------------------- |
 | `kind-config.yaml`        | Topología del cluster: 1 control-plane + 2 workers   |
-| `namespace.yaml`          | Namespace `equipo-2`, donde vive todo lo demás       |
-| `secret.yaml`             | Credenciales de Mongo + `MONGO_URI` completo         |
-| `mongo_statefulset.yaml`  | StatefulSet de Mongo (1 réplica) + PVC 1Gi + Service |
+| `namespace.yaml`          | Namespace compartido `proyecto-final`                |
+| `secret.yaml`             | `MONGO_URI` hacia el Mongo común                     |
 | `backend_configmap.yaml`  | Nombre de la DB y de las 3 colecciones               |
 | `backend_deployment.yaml` | Deployment del backend (**2 réplicas**) + Service    |
 | `setup_app.sh`            | Aplica todo lo anterior en el orden correcto         |
@@ -92,35 +91,29 @@ cd kubernetes/equipo_2
 ```
 
 El script crea el cluster `web3` si no existe (usando `kind-config.yaml`), aplica
-el namespace, el Secret, el StatefulSet de Mongo, el ConfigMap y el Deployment
-del backend, y espera a que todo quede listo.
+el namespace `proyecto-final`, el Mongo común (`kubernetes/mongo_statefulset.yaml`),
+el Secret, el ConfigMap y el Deployment del backend, y espera a que todo quede
+listo. Todos nuestros recursos llevan el prefijo `categorias-ubicaciones-` para
+no chocar con los de otros equipos en el namespace compartido.
 
 Para verlo en tu navegador:
 
 ```bash
-kubectl port-forward -n equipo-2 service/backend-service 8000:8000
+kubectl port-forward -n proyecto-final service/categorias-ubicaciones-service 8000:8000
 ```
 
 Luego abre http://localhost:8000/docs. En OpenLens: selecciona el contexto
-`kind-web3`, filtra por el namespace `equipo-2` y entra a **Network →
-Services → backend-service** para hacer el port-forward con un clic (ícono de
+`kind-web3`, filtra por el namespace `proyecto-final` y entra a **Network →
+Services → categorias-ubicaciones-service** para hacer el port-forward con un clic (ícono de
 conector) en vez de usar la terminal.
 
-> ⚠️ **Mac con Apple Silicon (arm64):** hoy la imagen publicada en GHCR
-> (`ghcr.io/sergiomdza/categorias-ubicaciones:latest`) solo tiene build
-> `linux/amd64`. Un `kubectl apply` directo va a dar `ImagePullBackOff` ahí.
-> Antes de correr `setup_app.sh`, construye y precarga la imagen en local:
+> La imagen `ghcr.io/sergiomdza/categorias-ubicaciones:latest` la publica el
+> pipeline para `linux/amd64` y `linux/arm64`, así que funciona igual en Macs
+> con Apple Silicon sin construir nada a mano.
 >
-> ```bash
-> cd backend/products
-> docker build -t ghcr.io/sergiomdza/categorias-ubicaciones:latest .
-> kind load docker-image ghcr.io/sergiomdza/categorias-ubicaciones:latest --name web3
-> ```
->
-> También puede pasar con `mongo:7.0` si el nodo donde cae el pod no la tiene
-> cacheada (puede tardar en jalarla de internet). Si se traba en
-> `ContainerCreating`, precárgala igual con
-> `kind load docker-image mongo:7.0 --name web3`.
+> Si `mongo-0` se traba en `ContainerCreating`, puede ser que el nodo donde
+> cayó el pod todavía esté descargando `mongo:7.0`. Para no esperar, precárgala
+> con `kind load docker-image mongo:7.0 --name web3`.
 
 **Probar que los datos persisten** (StatefulSet con PVC + Deployment con 2
 réplicas no deberían perder nada al reiniciar un pod):
@@ -134,13 +127,13 @@ curl -X POST http://localhost:8000/activos -H 'Content-Type: application/json' -
 
 # 2. Borra mongo-0 y uno de los dos pods del backend (copia un nombre del
 #    kubectl get pods de abajo)
-kubectl get pods -n equipo-2
-kubectl delete pod mongo-0 -n equipo-2
-kubectl delete pod -n equipo-2 <nombre-de-un-pod-backend-...>
+kubectl get pods -n proyecto-final
+kubectl delete pod mongo-0 -n proyecto-final
+kubectl delete pod -n proyecto-final <nombre-de-un-pod-categorias-ubicaciones-api-...>
 
 # 3. Espera a que se regeneren y vuelve a consultar: el activo debe seguir ahí
-kubectl rollout status statefulset/mongo -n equipo-2
-kubectl rollout status deployment/backend -n equipo-2
+kubectl rollout status statefulset/mongo -n proyecto-final
+kubectl rollout status deployment/categorias-ubicaciones-api -n proyecto-final
 curl http://localhost:8000/activos
 ```
 
@@ -190,8 +183,9 @@ kind create cluster --name web3
 > [Desplegar en Kubernetes](#desplegar-en-kubernetes-equipo-2) arriba). El
 > stack de observabilidad (Prometheus/Grafana) todavía no existe en ningún
 > módulo. Si tu equipo necesita sus propios manifiestos, sigue el mismo
-> patrón: una carpeta `kubernetes/<modulo>/` con su propio namespace, Secret,
-> ConfigMap, Deployment/StatefulSet, Service y un `setup_app.sh`.
+> patrón: una carpeta `kubernetes/<modulo>/` con su Secret, ConfigMap,
+> Deployment, Service y un `setup_app.sh`, todo en el namespace `proyecto-final`
+> y con nombres prefijados por módulo.
 
 ## Estado por módulo
 

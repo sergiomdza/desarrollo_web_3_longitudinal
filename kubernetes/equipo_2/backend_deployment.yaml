@@ -1,14 +1,12 @@
-# imagePullPolicy: IfNotPresent -> funciona en cualquier arquitectura (la
-# imagen publicada en GHCR hoy solo tiene build linux/amd64; en una Mac Apple
-# Silicon hay que precargarla al cluster con `kind load docker-image`, igual
-# que en el cheat sheet del README). Tras cada nuevo push a GHCR, corran:
-#   kubectl rollout restart deployment/backend -n equipo-2
-# para que tome la imagen más reciente con el tag `latest`.
+# Usa la imagen que publica el pipeline en GHCR (linux/amd64 y linux/arm64).
+# imagePullPolicy: Always -> cada pod nuevo jala el `latest` más reciente.
+# Tras cada push a equipo_2, cuando termine el workflow, corran:
+#   kubectl rollout restart deployment/categorias-ubicaciones-api -n proyecto-final
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend
-  namespace: equipo-2
+  name: categorias-ubicaciones-api
+  namespace: proyecto-final
   labels:
     app: categorias-ubicaciones
 spec:
@@ -24,17 +22,17 @@ spec:
       containers:
         - name: categorias-ubicaciones
           image: ghcr.io/sergiomdza/categorias-ubicaciones:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:
             - configMapRef:
-                name: backend-config
+                name: categorias-ubicaciones-config
           env:
             - name: MONGO_URI
               valueFrom:
                 secretKeyRef:
-                  name: mongo-secret
+                  name: categorias-ubicaciones-secret
                   key: MONGO_URI
           readinessProbe:
             httpGet:
@@ -52,8 +50,8 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service
-  namespace: equipo-2
+  name: categorias-ubicaciones-service
+  namespace: proyecto-final
 spec:
   selector:
     app: categorias-ubicaciones

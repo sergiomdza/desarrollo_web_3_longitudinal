@@ -1,6 +1,7 @@
+# Namespace compartido por todos los equipos (README del repo).
+# Todos nuestros recursos llevan el prefijo "categorias-ubicaciones-" para no
+# chocar con los de otros módulos.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: equipo-2
-  labels:
-    app.kubernetes.io/part-of: categorias-ubicaciones
+  name: proyecto-final

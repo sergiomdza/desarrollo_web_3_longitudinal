@@ -1,10 +1,11 @@
 # Configuración no sensible del backend. Mismos valores que
-# backend/products/docker-compose.yaml.
+# backend/products/docker-compose.yaml. La base "equipo_2" separa nuestras
+# colecciones de las de otros equipos dentro del Mongo común.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: backend-config
-  namespace: equipo-2
+  name: categorias-ubicaciones-config
+  namespace: proyecto-final
 data:
   MONGO_DB_NAME: equipo_2
   CATEGORIAS_COLLECTION: categorias

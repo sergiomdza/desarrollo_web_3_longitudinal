@@ -30,6 +30,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # QEMU permite construir también linux/arm64 (Macs con Apple Silicon)
+      - name: Configurar QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Configurar Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -37,6 +41,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: backend/products
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ steps.image.outputs.name }}:${{ steps.image.outputs.short_sha }}

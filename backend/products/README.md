@@ -28,7 +28,8 @@ entradas como las salidas del API.
 
 ### Colecciones en MongoDB
 
-Todo vive en la base de datos `equipo_2`, separada de la de los demás equipos:
+Usamos el MongoDB común del namespace `proyecto-final`; nuestros datos viven en
+la base de datos `equipo_2`, separada de la de los demás equipos:
 
 | Colección     | Contenido                                |
 | ------------- | ---------------------------------------- |
@@ -40,7 +41,7 @@ Los nombres de la base y de las colecciones se leen de variables de entorno
 (`MONGO_DB_NAME`, `ACTIVOS_COLLECTION`, `CATEGORIAS_COLLECTION`,
 `UBICACIONES_COLLECTION`), igual que la cadena de conexión `MONGO_URI`. Nada
 de esto está escrito en el código: en Kubernetes llega por el ConfigMap
-`backend-config` y el Secret `mongo-secret`.
+`categorias-ubicaciones-config` y el Secret `categorias-ubicaciones-secret`.
 
 ## Endpoints
 
@@ -77,9 +78,8 @@ backend/products/
 
 kubernetes/equipo_2/
 ├── kind-config.yaml         # Cluster: 1 control-plane + 2 workers
-├── namespace.yaml           # Namespace equipo-2
-├── secret.yaml              # Credenciales de Mongo y MONGO_URI
-├── mongo_statefulset.yaml   # StatefulSet de Mongo + PVC 1Gi + Service
+├── namespace.yaml           # Namespace compartido proyecto-final
+├── secret.yaml              # MONGO_URI hacia el Mongo común
 ├── backend_configmap.yaml   # Nombre de la base y de las colecciones
 ├── backend_deployment.yaml  # Deployment del API (2 réplicas) + Service
 └── setup_app.sh             # Aplica todo en orden
@@ -108,32 +108,30 @@ cd kubernetes/equipo_2
 El script:
 
 1. Crea el cluster de kind `web3` con `kind-config.yaml` (si no existe).
-2. Aplica el namespace `equipo-2` y el Secret con las credenciales de Mongo.
-3. Aplica el StatefulSet de MongoDB y espera a que `mongo-0` esté listo.
-4. Aplica el ConfigMap y el Deployment del API (2 réplicas) con su Service.
+2. Aplica el namespace compartido `proyecto-final`.
+3. Aplica el MongoDB común (`kubernetes/mongo_statefulset.yaml`: StatefulSet +
+   PVC 1Gi + Service) y espera a que `mongo-0` esté listo.
+4. Aplica el Secret, el ConfigMap y el Deployment del API (2 réplicas) con su
+   Service.
 5. Espera a que el Deployment termine su rollout.
 
 El Deployment usa la imagen que publica el pipeline en
-`ghcr.io/sergiomdza/categorias-ubicaciones`.
+`ghcr.io/sergiomdza/categorias-ubicaciones` (para `linux/amd64` y
+`linux/arm64`, así que funciona igual en Macs con Apple Silicon).
 
 Verifica que todo esté corriendo:
 
 ```bash
-kubectl get pods -n equipo-2
-# mongo-0 y dos pods backend-... en estado Running
+kubectl get pods -n proyecto-final -l 'app in (mongo,categorias-ubicaciones)'
+# mongo-0 y dos pods categorias-ubicaciones-api-... en estado Running
 ```
-
-> **Mac con Apple Silicon:** si los pods del backend quedan en
-> `ImagePullBackOff`, la imagen publicada todavía no incluye la versión
-> `arm64`. Consulta la nota correspondiente en el
-> [README principal](../../README.md#desplegar-en-kubernetes-equipo-2).
 
 ### 2. Exponer el API en tu máquina
 
 En una terminal aparte (se queda corriendo):
 
 ```bash
-kubectl port-forward -n equipo-2 service/backend-service 8000:8000
+kubectl port-forward -n proyecto-final service/categorias-ubicaciones-service 8000:8000
 ```
 
 ### 3. Cargar datos de prueba
@@ -194,17 +192,17 @@ Borra el pod de Mongo y uno del backend. Cuando Kubernetes los recree, los
 activos deben seguir ahí:
 
 ```bash
-kubectl delete pod mongo-0 -n equipo-2
-kubectl delete pod -n equipo-2 <nombre-de-un-pod-backend>
-kubectl rollout status statefulset/mongo -n equipo-2
-kubectl rollout status deployment/backend -n equipo-2
+kubectl delete pod mongo-0 -n proyecto-final
+kubectl delete pod -n proyecto-final <nombre-de-un-pod-categorias-ubicaciones-api>
+kubectl rollout status statefulset/mongo -n proyecto-final
+kubectl rollout status deployment/categorias-ubicaciones-api -n proyecto-final
 curl http://localhost:8000/activos
 ```
 
 Para ver los logs del API:
 
 ```bash
-kubectl logs -n equipo-2 deployment/backend
+kubectl logs -n proyecto-final deployment/categorias-ubicaciones-api
 ```
 
 ### Correr en local sin Kubernetes (opcional)
@@ -221,7 +219,8 @@ docker compose down -v            # apagar y borrar datos
 El workflow
 [`categorias_ubicaciones_build_image.yaml`](../../.github/workflows/categorias_ubicaciones_build_image.yaml)
 corre en cada push a la rama `equipo_2`: construye la imagen desde
-`backend/products` y la publica en GitHub Container Registry con tres tags:
+`backend/products` para `linux/amd64` y `linux/arm64`, y la publica en GitHub
+Container Registry con tres tags:
 
 - el SHA corto del commit (ej. `c338e1e`), que identifica la versión exacta,
 - el número de corrida del workflow,

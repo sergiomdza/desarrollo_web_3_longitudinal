@@ -9,7 +9,7 @@ Secret y del ConfigMap del cluster (modo por defecto) o de variables de
 entorno (`--env`).
 
 Uso:
-    # 1) Modo cluster (default): lee Secret/ConfigMap de equipo-2 y abre
+    # 1) Modo cluster (default): lee Secret/ConfigMap de proyecto-final y abre
     #    el port-forward a mongo-service por su cuenta.
     python scripts/seed_activos.py
 
@@ -35,9 +35,9 @@ from urllib.parse import urlsplit, urlunsplit
 from pymongo import MongoClient
 from pymongo.errors import CollectionInvalid, PyMongoError
 
-NAMESPACE = "equipo-2"
-SECRET_NAME = "mongo-secret"
-CONFIGMAP_NAME = "backend-config"
+NAMESPACE = "proyecto-final"
+SECRET_NAME = "categorias-ubicaciones-secret"
+CONFIGMAP_NAME = "categorias-ubicaciones-config"
 MONGO_SERVICE = "mongo-service"
 MONGO_PORT = 27017
 
@@ -181,7 +181,7 @@ def _config_from_env() -> dict[str, str]:
 
 
 def _config_from_cluster() -> dict[str, str]:
-    """Configuración leída del Secret y el ConfigMap del namespace equipo-2."""
+    """Configuración leída del Secret y el ConfigMap del namespace proyecto-final."""
     secret = json.loads(_kubectl("get", "secret", SECRET_NAME, "-n", NAMESPACE, "-o", "json"))
     config = json.loads(_kubectl("get", "configmap", CONFIGMAP_NAME, "-n", NAMESPACE, "-o", "json"))
 
