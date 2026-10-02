@@ -1,10 +1,20 @@
+import os
 import pymongo
-#Cambiar por los del .env
-client = pymongo.MongoClient("mongodb://admin:web3@localhost:27017/?authSource=admin")
+from dotenv import load_dotenv
 
-theDatabase = client ["database_proyecto"]
+load_dotenv()
 
-column = theDatabase["Requests"]
+MONGO_USER = os.getenv("MONGO_USER")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
+MONGO_HOST = os.getenv("MONGO_HOST")
+MONGO_PORT = os.getenv("MONGO_PORT")
+MONGO_DB = os.getenv("MONGO_DB")
+
+client = pymongo.MongoClient(f"mongodb://{MONGO_USER}:{MONGO_PASSWORD}@{MONGO_HOST}:{MONGO_PORT}/?authSource=admin")
+
+theDatabase = client[MONGO_DB]
+
+column = theDatabase["requests"]
 
 tableInserts = [
     {
