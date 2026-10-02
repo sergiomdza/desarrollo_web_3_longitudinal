@@ -12,7 +12,25 @@ docker build -t backend_requests
 
 Cluster:
 
+kind create cluster --name web3 --config kubernetes/requests/kind-config.yaml
+kubectl cluster-info --context kind-web3
+
 Aplicar manifiestos:
+
+kubectl apply -f kubernetes/requests/namespace.yaml
+kubectl apply -f kubernetes/requests/secret.yaml
+kubectl apply -f kubernetes/requests/backend_configmap.yaml
+kubectl apply -f kubernetes/requests/mongo_statefulset.yaml
+kubectl apply -f kubernetes/requests/backend_deployment.yaml
+
+Verificar manifiestos:
+
+kubectl get nodes
+kubectl get all -n proyecto-final
+kubectl get pods -n proyecto-final
+kubectl get pvc -n proyecto-final
+kubectl get services -n proyecto-final
+kubectl get deployment -n proyecto-final
 
 Probar API:
 1.Primero ejecutar este comando en una terminal que apunte a /kubernetes
