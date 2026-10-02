@@ -111,3 +111,32 @@ def delete_request(id: str):
         )
         
     return None
+
+@router.post(
+    "/requests",
+    response_model=Requests,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        400: {"description": "Datos de solicitud inválidos"},
+        503: {"description": "No hay conexión con la base de datos"},
+    },
+)
+def create_request(new_request: Requests):
+    try:
+        request_dict = new_request.model_dump(by_alias=True)
+        result = requests_collection.insert_one(request_dict)
+        created_document = requests_collection.find_one({"_id": result.inserted_id})
+        
+    except PyMongoError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No se pudo conectar con la base de datos o insertar el registro",
+        )
+
+    try:
+        return Requests(**created_document)
+    except ValidationError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="El documento guardado no cumple con el modelo Pydantic",
+        )
