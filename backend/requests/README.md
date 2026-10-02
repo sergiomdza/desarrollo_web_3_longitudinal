@@ -5,6 +5,10 @@ Descripcion del modulo:
 Tabla de enpoints:
 
 Instrucciones para levantar:
+Para crear el namespace si no lo tienes creado aplica kubectl create namespace proyecto-final
+Si quieres corroborar que lo tengas utiliza kubectl get namespaces
+Para ejecutar el dockerfile ubicate dentro de la carpeta de /requests y realiza el comando.
+docker build -t backend_requests
 
 Cluster:
 
