@@ -1,0 +1,20 @@
+[project]
+name = "reportes-analitica"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "SalazarDaniel",email = "danielsalazarberzunza@hotmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi (>=0.142.2,<0.143.0)",
+    "uvicorn (>=0.54.0,<0.55.0)",
+    "pymongo (>=4.18.2,<5.0.0)",
+    "prometheus-fastapi-instrumentator (>=8.1.0,<9.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
