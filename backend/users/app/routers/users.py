@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, status
-
+from pymongo.errors import  PyMongoError
 from app.Models.users import UsersCreate, UsersResponse, UsersRoles, UsersUpdate
 from app.database import usuarios_collection
 
@@ -19,7 +19,14 @@ def usuario_dict(usuario: dict) -> UsersResponse:
 
 @routers.get("/health", status_code=status.HTTP_200_OK)
 async def health_check():
-    return {"status": "ESTOY VIVO :D"}
+    try:
+        await usuarios_collection.database.command("ping")
+    except PyMongoError:
+        raise HTTPException(
+            status_code= status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No hay conexion a la base de datos"
+        )
+    return {"status": "ESTOY VIVO :D", "database":"conexion establecida"}
 
 
 @routers.get("/", response_model=list[UsersResponse])
@@ -45,6 +52,11 @@ async def get_user(user_id: str):
 
 @routers.post("/create", response_model=UsersResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(user: UsersCreate):
+    if await usuarios_collection.find_one({"email" : str (user.email)}):
+        raise HTTPException(
+            status_code= status.HTTP_409_CONFLICT,
+            detail=f" Ya existe un usuario con el mismo {user.email}"
+        )
     nuevo_usuario = {
         "nombre": user.nombre,
         "apellido": user.apellido,
