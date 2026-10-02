@@ -35,8 +35,9 @@ spec:
     spec:
       containers:
         - name: audits-api
-          image: backend_audits:latest
-          imagePullPolicy: IfNotPresent
+          # Imagen publicada por .github/workflows/cicd_equipo_1_audits.yaml
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-audits:equipo_1-latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 8001
