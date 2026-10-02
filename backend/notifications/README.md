@@ -31,9 +31,9 @@ Cada notificacion puede contener informacion como el codigo de la notificacion, 
 
 ### 1. Crear el cluster de Kubernetes
 
-- Correr Docker Desktop
+Correr Docker Desktop
 
-- kind create cluster --name desarrollo-web
+kind create cluster --name desarrollo-web
 
 kubectl config current-context
 
