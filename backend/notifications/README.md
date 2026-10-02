@@ -36,8 +36,10 @@ Correr Docker Desktop
 kind create cluster --name desarrollo-web
 
 kubectl config current-context
+(deberia ser kind-desarollo-web)
 
 kubectl get nodes
+(hasta que salga ready)
 
 ### 2. Crear el namespace
 
@@ -48,20 +50,24 @@ kubectl create namespace proyecto-final
 kubectl apply -f kubernetes/mongo_statefulset.yaml
 
 kubectl get pods -n proyecto-final
+(hasta que salga ready)
 
 ### 4. Aplicar los manifiestos de Notificaciones
 
 kubectl apply -f kubernetes/notifications/
 
 kubectl get pods -n proyecto-final
+(hasta que salga ready)
 
 kubectl get svc -n proyecto-final
 
 ### 5. Probar el API
 
 kubectl port-forward -n proyecto-final svc/notificaciones 8000:80
+(en una terminal aparte)
 
 Invoke-RestMethod -Method Get -Uri "http://localhost:8000/health"
+(debe salir ok)
 
 ## Integrantes del equipo
 
