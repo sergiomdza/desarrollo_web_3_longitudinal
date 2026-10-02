@@ -19,7 +19,7 @@ metadata:
 type: Opaque
 stringData:
   MONGO_URL: "mongodb://admin:web3@mongo-service:27017/?authSource=admin"
-  MONGO_DATABASE: "users"
+  MONGO_DATABASE: "desarrollo_web_3"
   JWT_SECRET_KEY: "Rc43Up96YYPRaTWaBpMTeentSsNLSo3AM0FzPIDLlOt"
   JWT_ALG: "HS256"
   JWT_EXPIRES_MIN: "1440"
