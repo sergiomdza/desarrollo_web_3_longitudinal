@@ -1,8 +1,13 @@
 # scrip para mandar usuarios
 import httpx
 
-URL = ""
+URL = "http://backend-service:8000/usuarios/create"
 
+ROLES = {
+    "admin": "Admin",
+    "usuario": "Usuario",
+    "moderador": "Mod",
+}
 usuarios = [
     {
         "nombre": "Kevin",
@@ -113,12 +118,15 @@ usuarios = [
 
 
 def insertar_usuarios():
-    print("Insertando usuarios...\n")
+    print("Insertando usuarios\n")
 
     with httpx.Client(timeout=10.0) as client:
         for usuario in usuarios:
+            payload = {k: v for k, v in usuario.items() if k != "rol"}
+            payload["role"] = ROLES[usuario["rol"]]
+
             try:
-                response = client.post(URL, json=usuario)
+                response = client.post(URL, json=payload)
 
                 if response.status_code == 201:
                     print(
@@ -145,7 +153,6 @@ def insertar_usuarios():
                 )
 
     print("\nProceso terminado.")
-
 
 if __name__ == "__main__":
     insertar_usuarios()
