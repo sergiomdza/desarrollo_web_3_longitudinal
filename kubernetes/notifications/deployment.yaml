@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: notificaciones
-          image: notificaciones:local
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/sergiomdza/notificaciones:latest
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 8000
