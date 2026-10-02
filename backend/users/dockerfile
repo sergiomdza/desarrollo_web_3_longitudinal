@@ -10,4 +10,4 @@ RUN pip install --no-cache-dir "poetry"
 
 RUN poetry install --no-root --only main --no-cache
 
-CMD ["poetry", "run", "fastapi", "dev", "main.py", "--host", "0.0.0.0"]
+CMD ["poetry", "run", "fastapi", "run", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
