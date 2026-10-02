@@ -76,6 +76,9 @@ backend/products/
 ├── .dockerignore
 └── docker-compose.yaml      # Para correrlo en local sin Kubernetes
 
+kubernetes/
+└── mongo_statefulset.yaml   # MongoDB común (StatefulSet + PVC 1Gi + Service)
+
 kubernetes/equipo_2/
 ├── kind-config.yaml         # Cluster: 1 control-plane + 2 workers
 ├── namespace.yaml           # Namespace compartido proyecto-final
@@ -97,6 +100,9 @@ kubernetes/equipo_2/
 - [Poetry](https://python-poetry.org/) >= 2.0 (para el script de datos y las pruebas)
 
 ### 1. Crear el cluster y desplegar
+
+> Si ya habías desplegado la versión anterior (namespace `equipo-2`), bórrala
+> primero: `kubectl delete namespace equipo-2`.
 
 Desde la raíz del repositorio:
 
