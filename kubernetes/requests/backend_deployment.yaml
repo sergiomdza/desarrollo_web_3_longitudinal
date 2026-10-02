@@ -1,54 +1,56 @@
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
   name: backend-requests
   namespace: proyecto-final
-
   labels:
     app: backend-requests
-
 spec:
   replicas: 2
-
   selector:
     matchLabels:
       app: backend-requests
-
   template:
     metadata:
       labels:
         app: backend-requests
-
     spec:
       containers:
-
         - name: backend-requests
-
           image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-requests:equipo_4-latest
-
-          imagePullPolicy: IfNotPresent
-
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
 
-          envFrom:
-            - configMapRef:
-                name: backend-config
-
           env:
-
-            - name: MONGO_URI
+            - name: MONGO_USER
               valueFrom:
                 secretKeyRef:
                   name: mongo-secret
-                  key: MONGO_URI
+                  key: MONGO_INITDB_ROOT_USERNAME
+
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: MONGO_INITDB_ROOT_PASSWORD
+
+            - name: MONGO_HOST
+              value: mongo-service
+
+            - name: MONGO_PORT
+              value: "27017"
+
+            - name: MONGO_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: MONGO_DB_NAME
 
           readinessProbe:
             httpGet:
               path: /health
               port: 8000
-
             initialDelaySeconds: 10
             periodSeconds: 5
 
@@ -56,26 +58,20 @@ spec:
             httpGet:
               path: /health
               port: 8000
-
             initialDelaySeconds: 20
             periodSeconds: 10
 
 ---
-
 apiVersion: v1
 kind: Service
-
 metadata:
   name: backend-requests-service
   namespace: proyecto-final
-
 spec:
   selector:
     app: backend-requests
-
   ports:
     - protocol: TCP
       port: 8000
       targetPort: 8000
-
   type: ClusterIP
