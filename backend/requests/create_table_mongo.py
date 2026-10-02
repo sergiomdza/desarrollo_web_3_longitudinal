@@ -1,8 +1,8 @@
+import os
 import pymongo
-#Cambiar por los del .env
-client = pymongo.MongoClient("mongodb://admin:web3@localhost:27017/?authSource=admin")
+from dotenv import load_dotenv
 
-theDatabase = client ["database_proyecto"]
+load_dotenv()
 
 column = theDatabase["requests"]
 
