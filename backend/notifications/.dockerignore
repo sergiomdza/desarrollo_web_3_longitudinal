@@ -1,18 +1,14 @@
 .git
 .github
 
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+
 .venv
 venv
 env
-
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-
-.pytest_cache
-.coverage
-htmlcov
 
 .env
 .env.*
@@ -20,11 +16,13 @@ htmlcov
 .vscode
 .idea
 
-k8s
-
-README.md
-*.md
+*.log
 
 Dockerfile
-.dockerignore
-.gitignore
+docker-compose.yml
+
+kubernetes
+docs
+evidence
+
+*.md
