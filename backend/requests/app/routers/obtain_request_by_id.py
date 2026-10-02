@@ -1,1 +1,0 @@
-#agregar aqui router que obtiene una request por id
