@@ -1,8 +1,22 @@
 # Equipo #6 — Notificaciones
 
-Recordatorios de devolución, alertas de vencimiento y confirmaciones de
-aprobación. El servicio **reacciona a los eventos del módulo de Préstamos**
-(Equipo #4) y guarda las notificaciones en la colección `notificaciones`.
+Módulo de Notificaciones para gestionar recordatorios de devolución, alertas de vencimiento, confirmaciones de aprobación y rechazo, y mensajes generales relacionados con préstamos de activos institucionales. El servicio reacciona a los eventos del módulo de Préstamos y guarda las notificaciones en la colección `notificaciones`.
+
+## Descripción
+
+El módulo de notificaciones se encarga de gestionar notificaciones relacionadas con los préstamos de activos institucionales.
+
+Entre las notificaciones contempladas se encuentran:
+
+- Recordatorios de devolución
+- Alertas de vencimiento
+- Confirmaciones de aprobación
+- Confirmaciones de rechazo
+- Notificaciones generales
+
+La entidad principal implementada es `Notificacion`.
+
+Cada notificación puede contener información como el código de la notificación, tipo, canal de envío, destinatario, préstamo relacionado, título, mensaje, estado y fechas relacionadas con su programación y lectura.
 
 ## Levantar en local
 
@@ -126,3 +140,11 @@ Préstamos reintenta la llamada no se duplica nada.
 Estados: `pendiente`, `enviada`, `leida`, `fallida`, `cancelada`.
 Todavía no hay proveedor real de email/push: "despachar" marca la notificación
 como `enviada`.
+
+## Integrantes del equipo
+
+- Victor Becerra
+- Andres Saldana
+- Maria Alejandra Kantun
+- Gabriel Kuuk
+
