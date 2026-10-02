@@ -11,6 +11,19 @@ spec:
       port: 8000
       targetPort: 8000
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: proyecto-final
+  name: db-secret
+type: Opaque
+stringData:
+  MONGO_URL: "mongodb://admin:web3@mongo-service:27017/?authSource=admin"
+  MONGO_DATABASE: "users"
+  JWT_SECRET_KEY: "Rc43Up96YYPRaTWaBpMTeentSsNLSo3AM0FzPIDLlOt"
+  JWT_ALG: "HS256"
+  JWT_EXPIRES_MIN: "1440"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -19,7 +32,7 @@ metadata:
   labels:
     app: fast-backend
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: fast-backend
@@ -34,3 +47,29 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
+          env:
+            - name: MONGO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MONGO_URL
+            - name: MONGO_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MONGO_DATABASE
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: JWT_SECRET_KEY
+            - name: JWT_ALG
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: JWT_ALG
+            - name: JWT_EXPIRES_MIN
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: JWT_EXPIRES_MIN
