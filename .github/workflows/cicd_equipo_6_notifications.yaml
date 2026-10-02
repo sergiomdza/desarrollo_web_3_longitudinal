@@ -13,7 +13,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-notifications
+  # Imagen que usa kubernetes/notifications/deployment.yaml.
+  IMAGE_NAME: ${{ github.repository_owner }}/notificaciones
   POETRY_VERSION: "2.4.1"
 
 defaults:
@@ -62,16 +63,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Tags: equipo_6-<run_number> identifica la versión;
-      # equipo_6-latest es la última publicada.
+      # Tags: latest es la que usa el Deployment;
+      # el SHA del commit identifica cada versión.
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=equipo_6-${{ github.run_number }}
-            type=raw,value=equipo_6-latest
+            type=raw,value=latest
+            type=sha,format=long,prefix=
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6

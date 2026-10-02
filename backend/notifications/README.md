@@ -64,21 +64,35 @@ Manifiestos en `kubernetes/notifications/` (ConfigMap, Secret, Deployment con
 2 réplicas y probes en `/health`, Service `notificaciones:80`). Requieren el
 `mongo-service` de `kubernetes/mongo_statefulset.yaml`.
 
+El Deployment usa la imagen que publica el CI,
+`ghcr.io/sergiomdza/notificaciones:latest`:
+
 ```bash
 # desde la raíz del repo
 kind create cluster --name web3
 kubectl create namespace proyecto-final
 kubectl apply -f kubernetes/mongo_statefulset.yaml
-
-docker build -t notificaciones:local backend/notifications
-kind load docker-image notificaciones:local --name web3
-
 kubectl apply -f kubernetes/notifications/
 kubectl -n proyecto-final port-forward svc/notificaciones 8001:80
 ```
 
-Cada vez que cambie el código: `docker build` + `kind load` +
+### Probar cambios locales sin publicar
+
+El Deployment usa `imagePullPolicy: Always`, así que para usar una imagen
+construida en tu compu hay que cambiar la imagen y la política después del
+`apply`:
+
+```bash
+docker build -t notificaciones:local backend/notifications
+kind load docker-image notificaciones:local --name web3
+kubectl -n proyecto-final patch deployment notificaciones --type=json -p '[
+  {"op":"replace","path":"/spec/template/spec/containers/0/image","value":"notificaciones:local"},
+  {"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]'
+```
+
+Tras cada cambio de código: `docker build` + `kind load` +
 `kubectl -n proyecto-final rollout restart deployment/notificaciones`.
+Un nuevo `kubectl apply -f kubernetes/notifications/` regresa a la imagen de GHCR.
 
 Seeder dentro del cluster:
 `kubectl -n proyecto-final exec deploy/notificaciones -- python scripts/seeder.py`
@@ -90,9 +104,8 @@ Seeder dentro del cluster:
 - **test**: en cada push a `equipo_6` / `equipo_6_*` y en PRs que toquen
   `backend/notifications/**` — instala con Poetry y corre `pytest`.
 - **build-and-push-image**: sólo en push a `equipo_6`, si las pruebas pasan.
-  Publica en GHCR `…-notifications:equipo_6-<run>` y `:equipo_6-latest`
-  (para usarla en el cluster, cambiar `image:` en
-  `kubernetes/notifications/deployment.yaml`).
+  Publica `ghcr.io/sergiomdza/notificaciones` con las etiquetas `latest`
+  (la que usa el Deployment) y el SHA del commit.
 
 ## Contrato con Préstamos
 
