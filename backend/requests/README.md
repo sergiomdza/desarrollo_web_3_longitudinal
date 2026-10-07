@@ -1,8 +1,16 @@
 Equipo #4
 
-Descripcion del modulo:
+Descripcion del modulo: El módulo esta destinado a gestionar solicitudes y préstamos de activos realizadas por el sistema. Este módulo nos permite crear, actualizar, eliminar y consultar en las distintas peticiones de los usuarios. Las distintas petiviones se encuentran en una base de datos.
 
 Tabla de enpoints:
+health_router // GET que recibe el status para saber si esta funcionando.
+
+request_router:
+GET Requests // Consulta los request de la bd en general.
+POST Requests // Generas un request llenando los datos.
+GET Requests {id} // Consulta el request de la bd que contenga el ID ingresado.
+PUT Requests // Actualiza el request ingresado.
+DELETE Requests // Elimina el request ingresado por ID.
 
 Instrucciones para levantar:
 Para crear el namespace si no lo tienes creado aplica kubectl create namespace proyecto-final
@@ -12,25 +20,7 @@ docker build -t backend_requests
 
 Cluster:
 
-kind create cluster --name web3 --config kubernetes/requests/kind-config.yaml
-kubectl cluster-info --context kind-web3
-
 Aplicar manifiestos:
-
-kubectl apply -f kubernetes/requests/namespace.yaml
-kubectl apply -f kubernetes/requests/secret.yaml
-kubectl apply -f kubernetes/requests/backend_configmap.yaml
-kubectl apply -f kubernetes/requests/mongo_statefulset.yaml
-kubectl apply -f kubernetes/requests/backend_deployment.yaml
-
-Verificar manifiestos:
-
-kubectl get nodes
-kubectl get all -n proyecto-final
-kubectl get pods -n proyecto-final
-kubectl get pvc -n proyecto-final
-kubectl get services -n proyecto-final
-kubectl get deployment -n proyecto-final
 
 Probar API:
 1.Primero ejecutar este comando en una terminal que apunte a /kubernetes
