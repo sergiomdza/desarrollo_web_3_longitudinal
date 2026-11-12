@@ -227,6 +227,14 @@ kubernetes/audits/
 
 ---
 
+Cambiar el entorno de default a proyecto-final
+
+Ejecutar el comando
+```bash
+kubectl apply -f monitoring_tools.yaml -n proyecto-final
+```
+---
+
 ## Integrantes del equipo
 
 **Equipo 1**
