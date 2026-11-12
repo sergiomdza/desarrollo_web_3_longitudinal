@@ -85,6 +85,7 @@ data:
         metrics_path: /metrics
         static_configs:
           - targets:
+            - audits-service.proyecto-final.svc.cluster.local:8001
 
       - job_name: notificaciones
         metrics_path: /metrics
