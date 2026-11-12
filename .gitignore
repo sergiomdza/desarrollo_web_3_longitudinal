@@ -1,0 +1,10 @@
+# Datos de runtime de MongoDB
+mongo_data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Variables de entorno locales
+.env
