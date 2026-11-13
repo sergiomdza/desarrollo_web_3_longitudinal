@@ -86,6 +86,8 @@ data:
         static_configs:
           - targets:
             - audits-service.proyecto-final.svc.cluster.local:8001
+            labels:
+              app: audits-api
 
       - job_name: notificaciones
         metrics_path: /metrics
@@ -162,7 +164,8 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
-        url: http://prometheus-service.default.svc.cluster.local:9090
+        # Mismo namespace que Grafana (proyecto-final), por eso se usa el nombre corto
+        url: http://prometheus-service:9090
         isDefault: true
         editable: false
       - name: Loki

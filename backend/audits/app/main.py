@@ -1,13 +1,14 @@
 from fastapi import FastAPI, HTTPException
-from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.models import Auditoria, AuditoriaUpdate
 from app.database import auditorias_collection
+from app.metrics import setup_metrics
 
 
 app = FastAPI()
 
-Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+# Métricas Prometheus (ver app/metrics.py)
+setup_metrics(app)
 
 
 @app.get("/")

@@ -235,6 +235,27 @@ kubectl apply -f monitoring_tools.yaml -n proyecto-final
 ```
 ---
 
+## Métricas (Prometheus + Grafana)
+
+La instrumentación está en `app/metrics.py` (librería `prometheus-fastapi-instrumentator`) y se expone en `/metrics`. Las rutas se registran con su plantilla (`/auditorias/{id}`) y se excluyen `/health` y `/metrics`.
+
+| Métrica | Tipo | Labels | Panel |
+|---|---|---|---|
+| `http_requests_total` | Counter | handler, method, status | Total de requests / Requests por status code |
+| `http_request_duration_seconds` | Histogram (s) | handler, method | Latencia p50/p95/p99 |
+| `http_requests_inprogress` | Gauge | handler, method | Requests en curso |
+| `http_response_size_bytes` | Histogram (bytes) | handler, method | Tamaño de las respuestas |
+
+Prometheus agrega el label `app="audits-api"` al job `auditorias`, y el dashboard (`kubernetes/audits/grafana/audits-dashboard.json`, uid `audits-api`) filtra por ese label.
+
+Para levantar todo en Kind e importar el dashboard:
+
+```bash
+bash kubernetes/audits/levantar_metricas_audits.sh
+```
+
+---
+
 ## Integrantes del equipo
 
 **Equipo 1**
