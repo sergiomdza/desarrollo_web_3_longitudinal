@@ -1,14 +1,36 @@
 from fastapi import FastAPI, HTTPException
+from prometheus_client import Histogram
+from prometheus_fastapi_instrumentator import Instrumentator, metrics
 
 from app.models import Auditoria, AuditoriaUpdate
 from app.database import auditorias_collection
-from app.metrics import setup_metrics
 
 
 app = FastAPI()
 
-# Métricas Prometheus (ver app/metrics.py)
-setup_metrics(app)
+# La librería trae el tamaño de respuesta como Summary; el proyecto lo pide como histograma.
+response_size = Histogram(
+    "http_response_size_bytes",
+    "Tamaño de las respuestas HTTP en bytes.",
+    ["handler", "method"],
+    buckets=(64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 65536, 262144, 1048576),
+)
+
+Instrumentator(
+    should_group_status_codes=False,              # status exacto: 200, 201, 404, 422...
+    should_ignore_untemplated=True,               # rutas inexistentes no crean series
+    excluded_handlers=["^/health$", "^/metrics$"],
+    should_instrument_requests_inprogress=True,   # requests en curso
+    inprogress_labels=True,                       # ...por método y ruta
+).add(
+    metrics.requests()                            # total y por status code
+).add(
+    metrics.latency(should_include_status=False)  # latencia (histograma, segundos)
+).add(
+    lambda info: response_size.labels(info.modified_handler, info.method).observe(
+        int(info.response.headers.get("Content-Length", 0))
+    ) if info.response is not None else None     # tamaño de respuesta (histograma, bytes)
+).instrument(app).expose(app, endpoint="/metrics")
 
 
 @app.get("/")

@@ -237,7 +237,7 @@ kubectl apply -f monitoring_tools.yaml -n proyecto-final
 
 ## Métricas (Prometheus + Grafana)
 
-La instrumentación está en `app/metrics.py` (librería `prometheus-fastapi-instrumentator`) y se expone en `/metrics`. Las rutas se registran con su plantilla (`/auditorias/{id}`) y se excluyen `/health` y `/metrics`.
+La instrumentación está en `app/main.py` (librería `prometheus-fastapi-instrumentator`) y se expone en `/metrics`. Las rutas se registran con su plantilla (`/auditorias/{id}`) y se excluyen `/health` y `/metrics`.
 
 | Métrica | Tipo | Labels | Panel |
 |---|---|---|---|

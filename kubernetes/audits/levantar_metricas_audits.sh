@@ -60,6 +60,8 @@ kubectl -n "$NS" patch deployment audits-api --type=json -p='[
 # Prometheus scrapea a través del Service: con 2 réplicas cada scrape cae en un
 # pod distinto y los contadores "brincan". Para la demo se deja 1 réplica.
 kubectl -n "$NS" scale deployment audits-api --replicas=1
+# La imagen conserva el tag audits-api:local; se reinicia para que tome la nueva.
+kubectl -n "$NS" rollout restart deployment audits-api
 kubectl -n "$NS" rollout status deployment audits-api --timeout=180s
 
 # --- 3. Prometheus + Grafana ---------------------------------------------------

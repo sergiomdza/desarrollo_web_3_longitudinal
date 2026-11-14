@@ -80,7 +80,20 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "decimals": 2
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#5794F2",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -122,7 +135,20 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "decimals": 2
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#5794F2",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -164,7 +190,20 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "decimals": 2
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#5794F2",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -206,7 +245,20 @@
       "fieldConfig": {
         "defaults": {
           "unit": "bytes",
-          "decimals": 2
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#5794F2",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -336,8 +388,10 @@
             "lineWidth": 2,
             "fillOpacity": 20,
             "showPoints": "never",
-            "lineInterpolation": "stepAfter"
-          }
+            "lineInterpolation": "stepAfter",
+            "axisSoftMax": 5
+          },
+          "min": 0
         },
         "overrides": []
       },
