@@ -153,6 +153,35 @@ roleRef:
   kind: Role
   name: alloy-logs
 ---
+# Equipo 1 (Auditorías): nuestro servicio vive en el namespace proyecto-final,
+# así que Alloy necesita los mismos permisos de lectura ahí.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alloy-logs
+  namespace: proyecto-final
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alloy-logs
+  namespace: proyecto-final
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alloy-logs
+---
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -164,15 +193,16 @@ data:
     discovery.kubernetes "backend" {
       role = "pod"
 
-      // Solo busca en el namespace default.
+      // Busca en default y en proyecto-final (namespace del módulo de Auditorías).
       namespaces {
-        names = ["default"]
+        names = ["default", "proyecto-final"]
       }
 
       // Filtra por label: solo los pods de los 6 servicios backend.
+      // audits-api es el label app del módulo de Auditorías (equipo 1).
       selectors {
         role  = "pod"
-        label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,notifications-backend)"
+        label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,audits-api,notifications-backend)"
       }
     }
 
