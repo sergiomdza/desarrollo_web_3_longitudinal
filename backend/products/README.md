@@ -68,6 +68,7 @@ backend/products/
 ├── main.py                  # App FastAPI y endpoints
 ├── models.py                # Modelos Pydantic
 ├── database.py              # Conexión a MongoDB (configuración por variables de entorno)
+├── logging_config.py        # Logs en JSON (formatter + configuración de Uvicorn)
 ├── scripts/seed_activos.py  # Crea las colecciones e inserta 10 activos
 ├── tests/                   # Pruebas con pytest
 ├── pyproject.toml           # Dependencias (Poetry)
@@ -219,6 +220,43 @@ poetry run pytest                 # pruebas
 docker compose up -d --build      # API + MongoDB en http://localhost:8000
 docker compose down -v            # apagar y borrar datos
 ```
+
+## Logs
+
+Todo lo que el servicio escribe sale por la salida estándar en **JSON, una
+línea por evento**, incluyendo los mensajes de Uvicorn. La configuración está en
+[`logging_config.py`](logging_config.py) y `main.py` la aplica al arrancar.
+
+```json
+{"timestamp": "2026-11-14T23:44:23.379+00:00", "level": "INFO", "service": "categorias-ubicaciones", "logger": "categorias_ubicaciones", "message": "Activo creado", "activo_id": "6af8f257645f8381ea36531c", "codigo": "TEC-900", "status_code": 201}
+```
+
+| Campo       | Contenido                                                             |
+| ----------- | --------------------------------------------------------------------- |
+| `timestamp` | Fecha y hora del evento en UTC (ISO 8601)                             |
+| `level`     | `INFO`, `WARNING`, `ERROR` o `CRITICAL`                               |
+| `service`   | Nombre del servicio (`SERVICE_NAME`)                                  |
+| `logger`    | Quién lo escribió: `categorias_ubicaciones` (nosotros) o `uvicorn.error` |
+| `message`   | Qué pasó                                                              |
+| otros       | Contexto que se pasa en `extra={...}`: `activo_id`, `status_code`...  |
+| `exception` | Solo en errores: el traceback completo, dentro del mismo registro     |
+
+- **Uvicorn también escribe en JSON:** le quitamos sus handlers de texto plano y
+  sus mensajes (arranque, apagado, errores) pasan por nuestro formatter.
+- **El access log de Uvicorn está apagado:** no hay una línea por cada request,
+  así que `/health` y `/metrics` no generan ruido.
+- **Los errores que tumban el proceso** (por ejemplo, falta una variable de
+  entorno) y los warnings de Python también salen en JSON.
+- **La URI de MongoDB nunca aparece:** el formatter la reemplaza por
+  `mongodb://***` en el mensaje y en el traceback.
+
+Dos variables de entorno opcionales, definidas en el ConfigMap
+`categorias-ubicaciones-config` y en `docker-compose.yaml`:
+
+| Variable       | Valor por defecto        | Para qué sirve                    |
+| -------------- | ------------------------ | --------------------------------- |
+| `SERVICE_NAME` | `categorias-ubicaciones` | Campo `service` de cada log       |
+| `LOG_LEVEL`    | `INFO`                   | Nivel mínimo que se escribe       |
 
 ## CI/CD
 

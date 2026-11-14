@@ -11,12 +11,18 @@ from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
 from pymongo.errors import ConnectionFailure, PyMongoError
 
+from logging_config import configurar_logging
+
+# Va antes de importar `database`: si ese import falla (por ejemplo, falta una
+# variable de entorno), el error ya sale en JSON.
+configurar_logging()
+
 import database
 from models import Activo, ActivoCreate, EstadoActivo
 
-# Logger de los eventos de dominio del módulo. El formato JSON, el campo
-# "service" y el contexto de la request (method, path, duration_ms) los agrega
-# la configuración de logging del servicio; aquí solo decimos QUÉ pasó.
+# Logger de los eventos de dominio del módulo. El formato JSON y los campos
+# "timestamp", "level" y "service" los agrega logging_config.py; aquí solo
+# decimos QUÉ pasó y pasamos el contexto en `extra`.
 logger = logging.getLogger("categorias_ubicaciones")
 
 app = FastAPI(
