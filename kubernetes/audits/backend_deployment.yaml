@@ -6,6 +6,9 @@ metadata:
 data:
   MONGO_DB: DB_Proyecto
   MONGO_COLLECTION: auditorias
+  # Logger JSON (backend/audits/app/logging_config.py)
+  SERVICE_NAME: audits-api
+  LOG_LEVEL: INFO
 ---
 apiVersion: v1
 kind: Secret
