@@ -1,3 +1,9 @@
+# Se configura antes de cualquier otro import para que todo lo que se loggee
+# (incluido Uvicorn y los errores al conectar con MongoDB) salga en JSON.
+from app.logging_config import get_logger, setup_logging
+
+setup_logging()
+
 from fastapi import FastAPI, HTTPException
 from prometheus_client import Histogram
 from prometheus_fastapi_instrumentator import Instrumentator, metrics
@@ -5,6 +11,7 @@ from prometheus_fastapi_instrumentator import Instrumentator, metrics
 from app.models import Auditoria, AuditoriaUpdate
 from app.database import auditorias_collection
 
+logger = get_logger("app")
 
 app = FastAPI()
 
