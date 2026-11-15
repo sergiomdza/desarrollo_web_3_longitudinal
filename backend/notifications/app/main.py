@@ -1,12 +1,20 @@
+import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.exception_handlers import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pymongo.errors import DuplicateKeyError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.db import COLLECTION_NAME, connect_to_mongo, close_mongo, get_database
 from app.eventos import construir_notificaciones, tipos_a_cancelar
@@ -19,13 +27,20 @@ from app.models import (
     NotificacionResponse,
     NotificacionUpdate,
 )
+from app.observability import ObservabilityMiddleware, configure_logging
+
+
+configure_logging()
+logger = logging.getLogger("notificaciones")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await connect_to_mongo()
+    logger.info("Conexión con MongoDB establecida")
     yield
     await close_mongo()
+    logger.info("Conexión con MongoDB cerrada")
 
 
 app = FastAPI(
@@ -46,6 +61,48 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mide (Prometheus) y loggea (JSON) cada petición, excepto /health y /metrics.
+app.add_middleware(ObservabilityMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def log_validation_error(request: Request, exc: RequestValidationError):
+    logger.warning(
+        "Validación fallida",
+        extra={
+            "status_code": 422,
+            "errores": [
+                {
+                    "campo": ".".join(str(p) for p in error.get("loc", [])),
+                    "mensaje": error.get("msg"),
+                }
+                for error in exc.errors()
+            ],
+        },
+    )
+    return await request_validation_exception_handler(request, exc)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def log_http_error(request: Request, exc: StarletteHTTPException):
+    if exc.status_code == status.HTTP_404_NOT_FOUND:
+        message = "Recurso no encontrado"
+    elif exc.status_code == status.HTTP_409_CONFLICT:
+        message = "Conflicto con un recurso existente"
+    else:
+        message = "Petición rechazada"
+
+    logger.log(
+        logging.ERROR if exc.status_code >= 500 else logging.WARNING,
+        message,
+        extra={
+            "status_code": exc.status_code,
+            "detail": exc.detail,
+            **request.path_params,
+        },
+    )
+    return await http_exception_handler(request, exc)
 
 
 def parse_object_id(notification_id: str) -> ObjectId:
@@ -69,6 +126,11 @@ def serialize_notification(document: dict) -> NotificacionResponse:
         id=str(document["_id"]),
         **document_data,
     )
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get(
@@ -124,6 +186,15 @@ async def create_notification(
 
     created = await collection.find_one(
         {"_id": result.inserted_id}
+    )
+
+    logger.info(
+        "Notificación creada",
+        extra={
+            "notification_id": str(result.inserted_id),
+            "codigo": notification.codigo,
+            "tipo": notification.tipo,
+        },
     )
 
     return serialize_notification(created)
@@ -191,6 +262,11 @@ async def list_notifications(
         for document in documents
     ]
 
+    logger.info(
+        "Notificaciones listadas",
+        extra={"filtros": query, "total": total, "devueltas": len(items)},
+    )
+
     return NotificacionListResponse(
         items=items,
         total=total,
@@ -220,6 +296,11 @@ async def dispatch_notifications():
         {"$set": {"estado": "enviada", "updated_at": now}},
     )
 
+    logger.info(
+        "Notificaciones despachadas",
+        extra={"despachadas": result.modified_count},
+    )
+
     return DespachoResponse(despachadas=result.modified_count)
 
 
@@ -245,6 +326,11 @@ async def get_notification(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notificación no encontrada.",
         )
+
+    logger.info(
+        "Notificación consultada",
+        extra={"notification_id": notification_id},
+    )
 
     return serialize_notification(document)
 
@@ -303,6 +389,14 @@ async def update_notification(
         {"_id": object_id}
     )
 
+    logger.info(
+        "Notificación actualizada",
+        extra={
+            "notification_id": notification_id,
+            "campos": sorted(k for k in updates if k != "updated_at"),
+        },
+    )
+
     return serialize_notification(document)
 
 
@@ -336,6 +430,11 @@ async def mark_notification_read(
         {"_id": object_id}
     )
 
+    logger.info(
+        "Notificación marcada como leída",
+        extra={"notification_id": notification_id},
+    )
+
     return serialize_notification(document)
 
 
@@ -361,6 +460,11 @@ async def delete_notification(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Notificación no encontrada.",
         )
+
+    logger.info(
+        "Notificación eliminada",
+        extra={"notification_id": notification_id},
+    )
 
     return None
 
@@ -411,6 +515,16 @@ async def handle_loan_event(
             {"codigo": notification.codigo}
         )
         notificaciones.append(serialize_notification(stored))
+
+    logger.info(
+        "Evento de préstamo procesado",
+        extra={
+            "evento": evento.evento,
+            "prestamo_id": evento.prestamo_id,
+            "notificaciones_generadas": [n.id for n in notificaciones],
+            "canceladas": canceladas,
+        },
+    )
 
     return EventoPrestamoResponse(
         evento=evento.evento,

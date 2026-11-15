@@ -8,3 +8,5 @@ data:
   MONGO_PORT: "27017"
   MONGO_DB: notifications_db
   MONGO_AUTH_SOURCE: admin
+  # Proyecto 2: nombre del servicio en el campo "service" de cada log JSON.
+  SERVICE_NAME: notificaciones
