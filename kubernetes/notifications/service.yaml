@@ -3,11 +3,35 @@ kind: Service
 metadata:
   name: notificaciones
   namespace: proyecto-final
+  labels:
+    app: notifications-backend
 spec:
   selector:
-    app: notificaciones
+    app: notifications-backend
   ports:
-    - protocol: TCP
+    - name: http
+      protocol: TCP
       port: 80
       targetPort: 8000
   type: ClusterIP
+---
+# Proyecto 2: Service headless (sin IP propia) para Prometheus.
+# Su DNS devuelve la IP de CADA réplica, así Prometheus scrapea los 2 pods
+# por separado (vía dns_sd_configs) en lugar de caer en uno al azar a
+# través del balanceo del Service normal.
+apiVersion: v1
+kind: Service
+metadata:
+  name: notificaciones-metrics
+  namespace: proyecto-final
+  labels:
+    app: notifications-backend
+spec:
+  clusterIP: None
+  selector:
+    app: notifications-backend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 8000
+      targetPort: 8000

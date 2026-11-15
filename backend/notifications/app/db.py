@@ -64,6 +64,10 @@ async def connect_to_mongo() -> None:
         unique=True,
     )
 
+    await _database[COLLECTION_NAME].create_index(
+        "prestamo_id",
+    )
+
 
 async def close_mongo() -> None:
     global _client, _database

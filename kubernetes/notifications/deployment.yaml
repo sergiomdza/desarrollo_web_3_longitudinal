@@ -3,29 +3,42 @@ kind: Deployment
 metadata:
   name: notificaciones
   namespace: proyecto-final
+  labels:
+    app: notifications-backend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: notificaciones
+      app: notifications-backend
   template:
     metadata:
       labels:
-        app: notificaciones
+        # Proyecto 2: label app que esperan Alloy (logs) y Prometheus (métricas)
+        # en kubernetes/logging.yaml y kubernetes/monitoring_tools.yaml.
+        app: notifications-backend
     spec:
       containers:
         - name: notificaciones
           image: ghcr.io/sergiomdza/notificaciones:latest
-          imagePullPolicy: Always
+          # IfNotPresent: si la imagen se cargó con `kind load`, se usa esa.
+          imagePullPolicy: IfNotPresent
 
           ports:
-            - containerPort: 8000
+            - name: http
+              containerPort: 8000
 
           envFrom:
             - configMapRef:
                 name: notifications-config
             - secretRef:
                 name: notifications-secret
+
+          env:
+            # Proyecto 2: cada log JSON indica de qué réplica salió.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
 
           readinessProbe:
             httpGet:

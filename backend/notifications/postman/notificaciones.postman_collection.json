@@ -1,0 +1,1003 @@
+{
+  "info": {
+    "_postman_id": "41a3a275-0fa1-587e-a809-11d4d60c3b1b",
+    "name": "Equipo 6 - Notificaciones",
+    "description": "Set de pruebas del módulo de Notificaciones. Correr en orden (Run collection). Variable baseUrl: http://localhost:8000 (Docker Compose) o http://localhost:8001 (kind con port-forward).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Health check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Verifica que la API esté arriba y conectada a MongoDB."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"API y MongoDB OK\", () => {",
+              "    const b = pm.response.json();",
+              "    pm.expect(b.status).to.eql(\"ok\");",
+              "    pm.expect(b.database).to.eql(\"ok\");",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "CRUD de notificaciones",
+      "item": [
+        {
+          "name": "1. Crear notificación",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"{{codigoDemo}}\",\n  \"tipo\": \"notificacion_general\",\n  \"canal\": \"email\",\n  \"destinatario_id\": \"USR-DEMO\",\n  \"prestamo_id\": \"PREST-DEMO\",\n  \"titulo\": \"Bienvenido al sistema\",\n  \"mensaje\": \"Tu cuenta fue creada correctamente.\",\n  \"estado\": \"pendiente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"codigoDemo\", \"DEMO-\" + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 201 Created\", () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Regresa id y created_at\", () => {",
+                  "    pm.expect(b.id).to.be.a(\"string\");",
+                  "    pm.expect(b.created_at).to.exist;",
+                  "});",
+                  "pm.test(\"Guarda los datos enviados\", () => {",
+                  "    pm.expect(b.codigo).to.eql(pm.collectionVariables.get(\"codigoDemo\"));",
+                  "    pm.expect(b.estado).to.eql(\"pendiente\");",
+                  "});",
+                  "pm.collectionVariables.set(\"notificacionId\", b.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Crear con código duplicado (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"{{codigoDemo}}\",\n  \"tipo\": \"notificacion_general\",\n  \"canal\": \"email\",\n  \"destinatario_id\": \"USR-DEMO\",\n  \"titulo\": \"Duplicada\",\n  \"mensaje\": \"No debería crearse.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "El código es único: una segunda notificación con el mismo código se rechaza."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 409 Conflict\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Crear con datos inválidos (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"x\",\n  \"tipo\": \"tipo_que_no_existe\",\n  \"canal\": \"fax\",\n  \"destinatario_id\": \"USR-DEMO\",\n  \"titulo\": \"Hi\",\n  \"mensaje\": \"Inválida\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 422 validación\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Listar notificaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones?skip=0&limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ],
+              "query": [
+                {
+                  "key": "skip",
+                  "value": "0"
+                },
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Respuesta paginada\", () => {",
+                  "    pm.expect(b.items).to.be.an(\"array\");",
+                  "    pm.expect(b.total).to.be.at.least(1);",
+                  "    pm.expect(b.limit).to.eql(20);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Listar filtrando por destinatario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones?destinatario_id=USR-DEMO",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ],
+              "query": [
+                {
+                  "key": "destinatario_id",
+                  "value": "USR-DEMO"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Todas son de USR-DEMO\", () => {",
+                  "    pm.response.json().items.forEach(n => pm.expect(n.destinatario_id).to.eql(\"USR-DEMO\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Obtener por ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/{{notificacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "{{notificacionId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Es la notificación creada\", () => {",
+                  "    pm.expect(pm.response.json().id).to.eql(pm.collectionVariables.get(\"notificacionId\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Actualizar (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/{{notificacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "{{notificacionId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"titulo\": \"Bienvenido (actualizado)\",\n  \"canal\": \"push\",\n  \"estado\": \"enviada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Campos actualizados\", () => {",
+                  "    pm.expect(b.titulo).to.eql(\"Bienvenido (actualizado)\");",
+                  "    pm.expect(b.canal).to.eql(\"push\");",
+                  "    pm.expect(b.estado).to.eql(\"enviada\");",
+                  "    pm.expect(b.updated_at).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Marcar como leída (PATCH)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/{{notificacionId}}/leida",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "{{notificacionId}}",
+                "leida"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Estado leída con fecha\", () => {",
+                  "    pm.expect(b.estado).to.eql(\"leida\");",
+                  "    pm.expect(b.leida_at).to.exist;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Obtener con ID inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/no-es-un-id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "no-es-un-id"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Eliminar",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/{{notificacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "{{notificacionId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 204 No Content\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Obtener eliminada (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/{{notificacionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "{{notificacionId}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 404\", () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Eventos de Préstamos",
+      "item": [
+        {
+          "name": "1. Préstamo aprobado → confirmación + recordatorio",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_aprobado\",\n  \"prestamo_id\": \"{{prestamoId}}\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Proyector Epson\",\n  \"fecha_devolucion\": \"{{fechaDevolucion}}\",\n  \"canal\": \"email\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Préstamos (Equipo #4) avisa que aprobó un préstamo."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"prestamoId\", \"PREST-\" + Date.now());",
+                  "const d = new Date(Date.now() + 7 * 24 * 3600 * 1000);",
+                  "pm.collectionVariables.set(\"fechaDevolucion\", d.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const n = pm.response.json().notificaciones;",
+                  "pm.test(\"Genera 2 notificaciones\", () => pm.expect(n.length).to.eql(2));",
+                  "pm.test(\"Confirmación de aprobación enviada\", () => {",
+                  "    pm.expect(n[0].tipo).to.eql(\"confirmacion_aprobacion\");",
+                  "    pm.expect(n[0].estado).to.eql(\"enviada\");",
+                  "});",
+                  "pm.test(\"Recordatorio programado 1 día antes de la devolución\", () => {",
+                  "    pm.expect(n[1].tipo).to.eql(\"recordatorio_devolucion\");",
+                  "    pm.expect(n[1].estado).to.eql(\"pendiente\");",
+                  "    const esperado = new Date(pm.collectionVariables.get(\"fechaDevolucion\")).getTime() - 24 * 3600 * 1000;",
+                  "    pm.expect(new Date(n[1].fecha_programada + \"Z\").getTime()).to.be.closeTo(esperado, 1000);",
+                  "});",
+                  "pm.collectionVariables.set(\"aprobacionId\", n[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. Reenviar mismo evento (idempotente)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_aprobado\",\n  \"prestamo_id\": \"{{prestamoId}}\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Proyector Epson\",\n  \"fecha_devolucion\": \"{{fechaDevolucion}}\",\n  \"canal\": \"email\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Devuelve las mismas notificaciones, no duplica\", () => {",
+                  "    pm.expect(pm.response.json().notificaciones[0].id).to.eql(pm.collectionVariables.get(\"aprobacionId\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. Notificaciones del préstamo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones?prestamo_id={{prestamoId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ],
+              "query": [
+                {
+                  "key": "prestamo_id",
+                  "value": "{{prestamoId}}"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Sólo existen 2 (sin duplicados)\", () => pm.expect(pm.response.json().total).to.eql(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. Préstamo por vencer → alerta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_por_vencer\",\n  \"prestamo_id\": \"{{prestamoId}}\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Proyector Epson\",\n  \"fecha_devolucion\": \"{{fechaDevolucion}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const n = pm.response.json().notificaciones[0];",
+                  "pm.test(\"Alerta de vencimiento\", () => {",
+                  "    pm.expect(n.tipo).to.eql(\"alerta_vencimiento\");",
+                  "    pm.expect(n.titulo).to.eql(\"Préstamo próximo a vencer\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. Préstamo devuelto → confirma y cancela pendientes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_devuelto\",\n  \"prestamo_id\": \"{{prestamoId}}\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Proyector Epson\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Confirmación de devolución\", () => {",
+                  "    pm.expect(b.notificaciones[0].titulo).to.eql(\"Devolución registrada\");",
+                  "});",
+                  "pm.test(\"Cancela el recordatorio pendiente\", () => pm.expect(b.canceladas).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Verificar recordatorio cancelado",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones?prestamo_id={{prestamoId}}&tipo=recordatorio_devolucion",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones"
+              ],
+              "query": [
+                {
+                  "key": "prestamo_id",
+                  "value": "{{prestamoId}}"
+                },
+                {
+                  "key": "tipo",
+                  "value": "recordatorio_devolucion"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Recordatorio en estado cancelada\", () => {",
+                  "    pm.expect(pm.response.json().items[0].estado).to.eql(\"cancelada\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. Préstamo rechazado → confirmación con motivo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_rechazado\",\n  \"prestamo_id\": \"{{prestamoId}}-R\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Laptop Dell\",\n  \"motivo\": \"No hay unidades disponibles\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const n = pm.response.json().notificaciones[0];",
+                  "pm.test(\"Confirmación de rechazo con motivo\", () => {",
+                  "    pm.expect(n.tipo).to.eql(\"confirmacion_rechazo\");",
+                  "    pm.expect(n.mensaje).to.include(\"No hay unidades disponibles\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Aprobado que vence pronto (para despachar)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_aprobado\",\n  \"prestamo_id\": \"{{prestamoId}}-P\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Cámara Canon\",\n  \"fecha_devolucion\": \"{{fechaProxima}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Se devuelve en 1 hora, así que el recordatorio queda programado para ahora."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"fechaProxima\", new Date(Date.now() + 3600 * 1000).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Recordatorio pendiente para ya\", () => {",
+                  "    pm.expect(pm.response.json().notificaciones[1].estado).to.eql(\"pendiente\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. Despachar recordatorios vencidos",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/notificaciones/despachar",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "notificaciones",
+                "despachar"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Envía al menos 1\", () => pm.expect(pm.response.json().despachadas).to.be.at.least(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Préstamo vencido → alerta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_vencido\",\n  \"prestamo_id\": \"{{prestamoId}}-P\",\n  \"usuario_id\": \"USR-100\",\n  \"activo_nombre\": \"Cámara Canon\",\n  \"fecha_devolucion\": \"{{fechaProxima}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+                  "const n = pm.response.json().notificaciones[0];",
+                  "pm.test(\"Alerta de préstamo vencido\", () => {",
+                  "    pm.expect(n.tipo).to.eql(\"alerta_vencimiento\");",
+                  "    pm.expect(n.titulo).to.eql(\"Préstamo vencido\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Evento desconocido (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/eventos/prestamos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "eventos",
+                "prestamos"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"prestamo_inventado\",\n  \"prestamo_id\": \"X\",\n  \"usuario_id\": \"USR-100\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status 422\", () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "codigoDemo",
+      "value": ""
+    },
+    {
+      "key": "notificacionId",
+      "value": ""
+    },
+    {
+      "key": "prestamoId",
+      "value": ""
+    },
+    {
+      "key": "fechaDevolucion",
+      "value": ""
+    },
+    {
+      "key": "fechaProxima",
+      "value": ""
+    },
+    {
+      "key": "aprobacionId",
+      "value": ""
+    }
+  ]
+}
