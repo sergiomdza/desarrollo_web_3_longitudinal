@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from pymongo.errors import  PyMongoError
 from app.Models.users import UsersCreate, UsersResponse, UsersRoles, UsersUpdate
 from app.database import usuarios_collection
+from ..security import get_password_hash
 
 routers = APIRouter(prefix="/usuarios", tags=["Users"])
 
@@ -61,6 +62,7 @@ async def create_user(user: UsersCreate):
         "nombre": user.nombre,
         "apellido": user.apellido,
         "email": str(user.email),
+        "password_hash": get_password_hash(user.password),
         "role": user.role.value,
         "activo": True,
     }
