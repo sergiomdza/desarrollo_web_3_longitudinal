@@ -10,6 +10,11 @@ class Setting(BaseSettings):
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALG")
     acces_token_expire_minutes: int = Field(default=60 * 24, alias="JWT_EXPIRES_MIN")
     PROJECT_NAME: str = "Examen 1"
+
+    # Authentication
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
     
     model_config = SettingsConfigDict(
     env_file=Path(__file__).resolve().parent / ".env"
