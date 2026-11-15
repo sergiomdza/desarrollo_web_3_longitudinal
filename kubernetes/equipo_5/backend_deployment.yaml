@@ -20,9 +20,9 @@ type: Opaque
 stringData:
   MONGO_URL: "mongodb://admin:web3@mongo-service:27017/?authSource=admin"
   MONGO_DATABASE: "desarrollo_web_3"
-  JWT_SECRET_KEY: "Rc43Up96YYPRaTWaBpMTeentSsNLSo3AM0FzPIDLlOt"
-  JWT_ALG: "HS256"
-  JWT_EXPIRES_MIN: "1440"
+  SECRET_KEY: "7cf1d71f8a3651cb6dfb7bcddf3150d9b0cd10133d7f690afab0ebc14c94234c"
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -58,18 +58,18 @@ spec:
                 secretKeyRef:
                   name: db-secret
                   key: MONGO_DATABASE
-            - name: JWT_SECRET_KEY
+            - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: db-secret
-                  key: JWT_SECRET_KEY
-            - name: JWT_ALG
+                  key: SECRET_KEY
+            - name: ALGORITHM
               valueFrom:
                 secretKeyRef:
                   name: db-secret
-                  key: JWT_ALG
-            - name: JWT_EXPIRES_MIN
+                  key: ALGORITHM
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
               valueFrom:
                 secretKeyRef:
                   name: db-secret
-                  key: JWT_EXPIRES_MIN
+                  key: ACCESS_TOKEN_EXPIRE_MINUTES
