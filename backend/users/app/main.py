@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.routers import users, auth_routers
-from backend.users.app.metrics import custom_metrics
+from app.metrics import custom_metrics
 from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(
@@ -21,8 +21,6 @@ instrumentator = Instrumentator(
 instrumentator.add(custom_metrics)
 
 instrumentator.instrument(app).expose(app, endpoint="/metrics")
-
-
 
 app.include_router(users.routers)
 app.include_router(auth_routers.router)
