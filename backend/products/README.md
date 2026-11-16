@@ -69,6 +69,7 @@ backend/products/
 ├── models.py                # Modelos Pydantic
 ├── database.py              # Conexión a MongoDB (configuración por variables de entorno)
 ├── logging_config.py        # Logs en JSON (formatter + configuración de Uvicorn)
+├── metrics.py               # Métricas de Prometheus y ruta /metrics
 ├── scripts/seed_activos.py  # Crea las colecciones e inserta 10 activos
 ├── tests/                   # Pruebas con pytest
 ├── pyproject.toml           # Dependencias (Poetry)
@@ -86,7 +87,13 @@ kubernetes/equipo_2/
 ├── secret.yaml              # MONGO_URI hacia el Mongo común
 ├── backend_configmap.yaml   # Nombre de la base y de las colecciones
 ├── backend_deployment.yaml  # Deployment del API (2 réplicas) + Service
-└── setup_app.sh             # Aplica todo en orden
+├── setup_app.sh             # Aplica todo en orden
+└── observabilidad/          # Conexión con Prometheus y Alloy del stack de clase
+    ├── metrics_service.yaml     # Service headless para raspar cada pod
+    ├── prometheus_config.yaml   # Jobs del profesor + job categorias-ubicaciones
+    ├── alloy_config.yaml        # Config del profesor + namespace proyecto-final
+    ├── alloy_rbac.yaml          # Permisos de Alloy en proyecto-final
+    └── setup_observabilidad.sh  # Aplica todo y reinicia Prometheus y Alloy
 
 .github/workflows/
 └── categorias_ubicaciones_build_image.yaml  # CI/CD: build y push a GHCR
@@ -257,6 +264,77 @@ Dos variables de entorno opcionales, definidas en el ConfigMap
 | -------------- | ------------------------ | --------------------------------- |
 | `SERVICE_NAME` | `categorias-ubicaciones` | Campo `service` de cada log       |
 | `LOG_LEVEL`    | `INFO`                   | Nivel mínimo que se escribe       |
+
+## Métricas y observabilidad
+
+El servicio expone métricas en formato Prometheus en `GET /metrics`. Están
+definidas en [`metrics.py`](metrics.py); `main.py` solo llama a
+`instrumentar(app)`.
+
+| Métrica                         | Tipo      | Labels                 |
+| ------------------------------- | --------- | ---------------------- |
+| `http_requests_total`           | Counter   | `method`, `path`       |
+| `http_responses_total`          | Counter   | `path`, `status_code`  |
+| `http_request_duration_seconds` | Histogram | `method`, `path`       |
+| `http_response_size_bytes`      | Histogram | `method`, `path`       |
+
+- **`path` es la ruta plantilla** (`/activos/{activo_id}`), nunca el ID real:
+  una serie por endpoint, no una por activo. Las rutas que no existen se
+  registran como `sin_ruta`.
+- **Histogramas** para poder calcular p95/p99 con `histogram_quantile`; un
+  promedio esconde las requests lentas. Buckets de tamaño: 100 B a 100 KB.
+- **`/health` y `/metrics` también se cuentan.** Los probes de Kubernetes llaman
+  a `/health` cada 5 s, así que en los dashboards conviene filtrar
+  `path!~"/health|/metrics"`.
+
+### Conectarlo con Prometheus, Loki y Alloy
+
+Requisitos en el namespace `default` (stack de clase, rama `main`):
+
+- `kubernetes/monitoring_tools.yaml`: Prometheus y Grafana.
+- `kubernetes/logging.yaml`: Loki y Alloy.
+
+> ⚠️ En `monitoring_tools.yaml` el ConfigMap `grafana-config` dice
+> `apiVersion: apps/v1` y falla al aplicarse. Apliquen ese bloque con
+> `apiVersion: v1`; si no, Grafana no tiene el datasource de Loki.
+
+Con el módulo ya desplegado (`setup_app.sh`):
+
+```bash
+./kubernetes/equipo_2/observabilidad/setup_observabilidad.sh
+```
+
+El script aplica los archivos de `observabilidad/` y reinicia Prometheus y
+Alloy. `prometheus_config.yaml` y `alloy_config.yaml` son copias de la
+configuración del profesor con nuestros cambios agregados: si el profesor
+cambia la suya, hay que copiar sus cambios ahí antes de volver a aplicar.
+
+**Cómo encuentra Prometheus los pods:** el Service
+`categorias-ubicaciones-metrics` es headless (`clusterIP: None`), así que su
+DNS devuelve la IP de cada pod en lugar de una IP que balancea. El job
+`categorias-ubicaciones` usa `dns_sd_configs` sobre ese nombre y raspa cada
+réplica por separado; con un Service normal, los contadores saltarían entre
+réplicas.
+
+**Cómo encuentra Alloy los logs:** su `discovery.kubernetes` busca también en
+`proyecto-final` pods con `app=categorias-ubicaciones`. El Role y RoleBinding
+`alloy-logs` de `alloy_rbac.yaml` le dan permiso de leerlos.
+
+### Verificar
+
+```bash
+# Métricas de un pod
+kubectl port-forward -n proyecto-final service/categorias-ubicaciones-service 8000:8000
+curl -s localhost:8000/metrics | grep ^http_
+
+# Prometheus -> http://localhost:9090/targets
+# Debe mostrar el job categorias-ubicaciones con 2 endpoints en UP.
+kubectl port-forward -n default service/prometheus-service 9090:9090
+
+# Grafana -> http://localhost:3000 -> Explore -> Loki
+# {app="categorias-ubicaciones"} debe traer logs de los 2 pods.
+kubectl port-forward -n default service/grafana-service 3000:3000
+```
 
 ## CI/CD
 
