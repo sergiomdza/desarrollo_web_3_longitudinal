@@ -74,9 +74,9 @@ data:
         scrape_interval: 15s
         static_configs:
           - targets:
-            - requests-service.proyecto-final.svc.cluster.local:8000
+            - backend-requests-service.proyecto-final.svc.cluster.local:8000
             labels:
-              app: requests-backend
+              app: backend-requests
 
       - job_name: reportes
         metrics_path: /metrics
