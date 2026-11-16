@@ -61,7 +61,7 @@ echo ""
 echo "==> Desplegando MongoDB..."
 
 kubectl apply \
-    -f "${DIR}/mongo_statefulset.yaml"
+    -f "${DIR}/../mongo_statefulset.yaml"
 
 
 echo ""
@@ -84,7 +84,7 @@ echo ""
 echo "==> Esperando API..."
 
 kubectl rollout status \
-    deployment/backend-requests \
+    deployment/requests-backend \
     -n "${NAMESPACE}" \
     --timeout=180s
 
@@ -113,7 +113,7 @@ kubectl get deployments -n "${NAMESPACE}"
 echo ""
 echo "Para acceder a FastAPI:"
 echo ""
-echo "kubectl port-forward -n ${NAMESPACE} service/backend-requests-service 8000:8000"
+echo "kubectl port-forward -n ${NAMESPACE} service/requests-service 8000:8000"
 echo ""
 echo "Swagger:"
 echo "http://localhost:8000/docs"

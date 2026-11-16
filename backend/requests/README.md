@@ -74,3 +74,22 @@ PARCIAL 2
   WARNING (no encontrado, validación fallida), ERROR (fallas de MongoDB).
 - No se loggea: `/health`, `/metrics`, access log de uvicorn,
   credenciales ni la URI de MongoDB.
+
+
+Grafana
+
+1. Stack compartido (Prometheus, Grafana, Loki, Alloy):
+   kubectl apply -f kubernetes/monitoring_tools.yaml
+   kubectl apply -f kubernetes/logging.yaml
+2. Nuestro servicio:
+   kubectl apply -f kubernetes/requests/backend_configmap.yaml
+   kubectl apply -f kubernetes/requests/backend_deployment.yaml
+3. Abrir Grafana:
+   kubectl port-forward svc/grafana-service 3000:3000
+   http://localhost:3000 (usuario: grafana_admin / contraseña: web3)
+4. Importar el dashboard: Dashboards → New → Import → subir
+   `kubernetes/requests/grafana-dashboard.json` → Import.
+
+Si tenías desplegado el servicio del Proyecto 1, bórralo antes del paso 2:
+   kubectl delete deployment backend-requests -n proyecto-final
+   kubectl delete service backend-requests-service -n proyecto-final
