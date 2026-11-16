@@ -83,11 +83,15 @@ data:
 
       - job_name: auditorias
         metrics_path: /metrics
-        static_configs:
-          - targets:
-            - audits-service.proyecto-final.svc.cluster.local:8001
-            labels:
-              app: audits-api
+        dns_sd_configs:
+          - names:
+              - audits-metrics.proyecto-final.svc.cluster.local
+            type: A
+            port: 8001
+            refresh_interval: 15s
+        relabel_configs:
+          - target_label: app
+            replacement: audits-api
 
       - job_name: notificaciones
         metrics_path: /metrics
@@ -171,7 +175,7 @@ data:
         uid: loki
         type: loki
         access: proxy
-        url: http://loki-service.default.svc.cluster.local:3100
+        url: http://loki-service.proyecto-final.svc.cluster.local:3100
         isDefault: false
         editable: false
 ---
