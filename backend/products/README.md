@@ -93,6 +93,7 @@ kubernetes/equipo_2/
     ├── prometheus_config.yaml   # Jobs del profesor + job categorias-ubicaciones
     ├── alloy_config.yaml        # Config del profesor + namespace proyecto-final
     ├── alloy_rbac.yaml          # Permisos de Alloy en proyecto-final
+    ├── grafana_dashboard.json   # Dashboard del módulo, listo para importar en Grafana
     └── setup_observabilidad.sh  # Aplica todo y reinicia Prometheus y Alloy
 
 .github/workflows/
@@ -257,6 +258,32 @@ línea por evento**, incluyendo los mensajes de Uvicorn. La configuración está
 - **La URI de MongoDB nunca aparece:** el formatter la reemplaza por
   `mongodb://***` en el mensaje y en el traceback.
 
+### Qué se registra y por qué
+
+Los logs cuentan **qué le pasó a los activos** y **qué salió mal**; cuántas
+requests hubo y cuánto tardaron ya lo dicen las métricas.
+
+| Cuándo                                | Nivel     | `message`              | Contexto                                                        |
+| ------------------------------------- | --------- | ---------------------- | --------------------------------------------------------------- |
+| `POST /activos` crea (201)            | `INFO`    | `Activo creado`        | `activo_id`, `codigo`, `status_code`                            |
+| `PUT /activos/{id}` actualiza (200)   | `INFO`    | `Activo actualizado`   | `activo_id`, `codigo`, `estado`, `status_code`                  |
+| `DELETE /activos/{id}` elimina (204)  | `INFO`    | `Activo eliminado`     | `activo_id`, `status_code`                                      |
+| GET/PUT/DELETE de un ID que no existe | `WARNING` | `Activo no encontrado` | `activo_id`, `operacion`, `status_code: 404`                    |
+| Body o query inválido (422)           | `WARNING` | `Validación fallida`   | `operacion`, `errores` (campo + motivo, sin los valores)        |
+| Falla de MongoDB (503 o 500)          | `ERROR`   | `Error de MongoDB`     | `operacion`, `error_type`, `mongo_code`, `error_detail` recortado |
+
+- **Los cambios al catálogo van en `INFO`** con el `activo_id`, para poder
+  reconstruir la historia de un activo sin leer el código.
+- **404 y 422 van en `WARNING`, no en `ERROR`:** el servicio funcionó bien, fue
+  el cliente el que pidió algo que no existe o mandó datos inválidos.
+- **`ERROR` se reserva para fallas nuestras** (MongoDB caído o respondiendo con
+  error), que son las que necesitan que alguien actúe. La causa va en el mismo
+  JSON, sin traceback de varias líneas.
+- **Los GET exitosos no se registran:** las lecturas no cambian nada y se
+  repiten mucho; registrarlas sería ruido.
+- **El 422 no incluye lo que mandó el cliente:** basta con saber qué campo falló
+  y por qué; el body puede ser grande o traer datos que no queremos guardar.
+
 Dos variables de entorno opcionales, definidas en el ConfigMap
 `categorias-ubicaciones-config` y en `docker-compose.yaml`:
 
@@ -335,6 +362,57 @@ kubectl port-forward -n default service/prometheus-service 9090:9090
 # {app="categorias-ubicaciones"} debe traer logs de los 2 pods.
 kubectl port-forward -n default service/grafana-service 3000:3000
 ```
+
+### Dashboard de Grafana
+
+El dashboard **Categorías & Ubicaciones** está guardado en
+[`grafana_dashboard.json`](../../kubernetes/equipo_2/observabilidad/grafana_dashboard.json).
+Todas sus consultas filtran por `app="categorias-ubicaciones"`, suman las 2
+réplicas con `sum by (...)` y dejan fuera `/health` y `/metrics` para que los
+probes no tapen el tráfico real.
+
+| Panel                                    | Métrica                         | Consulta principal                                                                                                     |
+| ---------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Requests por segundo, por método y ruta  | `http_requests_total`           | `sum by (method, path) (rate(http_requests_total{...}[1m]))`                                                           |
+| Respuestas por status code               | `http_responses_total`          | `sum by (status_code) (increase(http_responses_total{...}[1m]))`                                                       |
+| Respuestas por ruta y status code        | `http_responses_total`          | `sum by (path, status_code) (increase(http_responses_total{...}[$__range]))`                                           |
+| Latencia p50 / p95 / p99                 | `http_request_duration_seconds` | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{...}[5m])))`                          |
+| Latencia p95, por método y ruta          | `http_request_duration_seconds` | `histogram_quantile(0.95, sum by (le, method, path) (rate(http_request_duration_seconds_bucket{...}[5m])))`            |
+| Tamaño promedio de respuesta             | `http_response_size_bytes`      | `sum by (method, path) (rate(..._sum{...}[5m])) / sum by (method, path) (rate(..._count{...}[5m]))`                    |
+| Tamaño de respuesta p95                  | `http_response_size_bytes`      | `histogram_quantile(0.95, sum by (le, method, path) (rate(http_response_size_bytes_bucket{...}[5m])))`                 |
+| Logs del servicio (extra)                | Loki                            | `{app="categorias-ubicaciones"}`                                                                                       |
+
+Arriba hay una fila de resumen: réplicas en UP, requests por segundo, latencia
+p95 y respuestas 4xx/5xx de los últimos 5 minutos.
+
+- **`rate()` en lugar del contador directo:** el contador solo crece y vuelve a
+  cero si el pod se reinicia. `rate()` lo convierte en requests por segundo y
+  maneja esos reinicios.
+- **p95:** el 95% de las requests tardó menos que ese valor. Muestra la
+  experiencia de casi todos los usuarios sin que un caso extremo la distorsione.
+
+#### Importarlo
+
+1. Abre Grafana (el usuario y la contraseña están en el Secret `grafana-secret`
+   de `monitoring_tools.yaml`):
+
+   ```bash
+   kubectl port-forward -n default service/grafana-service 3000:3000
+   # http://localhost:3000
+   ```
+
+2. **Dashboards → New → Import → Upload dashboard JSON file** y elige
+   `kubernetes/equipo_2/observabilidad/grafana_dashboard.json`. Luego **Import**.
+3. Arriba del dashboard hay dos selectores, **Prometheus** y **Loki**: toman
+   solos los datasources del stack de clase. El JSON no trae ningún ID de
+   datasource fijo, por eso funciona igual en la máquina de cualquiera.
+
+Los paneles necesitan tráfico para mostrar algo. Con el port-forward del API en
+el puerto 8000 (paso 2 de "Levantar todo desde cero"), haz algunas requests
+desde `/docs` o con los `curl` del paso 4: crear, listar, obtener, actualizar,
+eliminar, un GET del ID borrado (404) y un POST inválido (422). En unos 15
+segundos aparecen en el dashboard; el panel de status codes debe mostrar 200,
+201, 204, 404 y 422 por separado.
 
 ## CI/CD
 
