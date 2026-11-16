@@ -7,3 +7,5 @@ metadata:
 
 data:
   MONGO_DB_NAME: database_proyecto
+  SERVICE_NAME: requests-backend
+  LOG_LEVEL: INFO
