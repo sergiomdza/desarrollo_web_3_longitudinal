@@ -45,6 +45,16 @@ kubectl -n "$NS" get deployment audits-api >/dev/null || {
   kubectl apply -f "$REPO_ROOT/kubernetes/audits/backend_deployment.yaml"
 }
 
+# Evitar duplicar el stack compartido si ya existe en otro namespace.
+for componente in prometheus grafana; do
+  otros="$(kubectl get deployment -A -l "app=$componente" -o jsonpath='{range .items[*]}{.metadata.namespace}{"\n"}{end}' | sort -u | grep -vx "$NS" || true)"
+  if [ -n "$otros" ]; then
+    echo "$componente ya existe en: $otros. Reutiliza esa instancia; no se creará otra."
+    echo "Para importar en esa instancia: MONITORING_NS=<namespace> bash kubernetes/audits/importar_dashboard_audits.sh"
+    exit 1
+  fi
+done
+
 # --- 1. Imagen local ---------------------------------------------------------
 paso "Construyendo imagen $IMAGE"
 docker build -t "$IMAGE" "$REPO_ROOT/backend/audits"
@@ -57,9 +67,8 @@ kubectl -n "$NS" patch deployment audits-api --type=json -p='[
   {"op":"replace","path":"/spec/template/spec/containers/0/image","value":"'"$IMAGE"'"},
   {"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}
 ]'
-# Prometheus scrapea a través del Service: con 2 réplicas cada scrape cae en un
-# pod distinto y los contadores "brincan". Para la demo se deja 1 réplica.
-kubectl -n "$NS" scale deployment audits-api --replicas=1
+# Conservar las réplicas: Prometheus descubre cada pod mediante audits-metrics.
+kubectl apply -f "$REPO_ROOT/kubernetes/audits/metrics_service.yaml"
 # La imagen conserva el tag audits-api:local; se reinicia para que tome la nueva.
 kubectl -n "$NS" rollout restart deployment audits-api
 kubectl -n "$NS" rollout status deployment audits-api --timeout=180s

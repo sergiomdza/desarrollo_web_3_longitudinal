@@ -8,14 +8,15 @@
 # =============================================================================
 set -uo pipefail
 
-NS="proyecto-final"
+NS="${NS:-proyecto-final}"
+MONITORING_NS="${MONITORING_NS:-$NS}"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 DASHBOARD="$REPO_ROOT/kubernetes/audits/grafana/audits-dashboard.json"
-GRAFANA_USER="grafana_admin"
-GRAFANA_PASS="web3"
+GRAFANA_USER="${GRAFANA_USER:-grafana_admin}"
+GRAFANA_PASS="${GRAFANA_PASS:-web3}"
 # Puertos locales poco comunes para no chocar con otros procesos de la Mac.
-GRAFANA_PORT=13000
-API_PORT=18001
+GRAFANA_PORT="${GRAFANA_PORT:-13000}"
+API_PORT="${API_PORT:-18001}"
 LOG_DIR="$(mktemp -d)"
 PF_PIDS=()
 
@@ -28,10 +29,12 @@ falla() { printf '\n\033[1;31mERROR: %s\033[0m\n' "$*"; exit 1; }
 # Abre un port-forward y espera a que responda. $1=nombre $2=recurso $3=local:remoto $4=url de prueba
 abrir_tunel() {
   local nombre="$1" recurso="$2" puertos="$3" url="$4" log="$LOG_DIR/$1.log"
-  kubectl -n "$NS" port-forward "$recurso" "$puertos" >"$log" 2>&1 &
-  PF_PIDS+=($!)
+  kubectl -n "${5:-$NS}" port-forward "$recurso" "$puertos" >"$log" 2>&1 &
+  local pid=$!
+  PF_PIDS+=("$pid")
   for _ in $(seq 1 40); do
-    curl -s -o /dev/null "$url" && { echo "Túnel $nombre listo ($url)"; return 0; }
+    kill -0 "$pid" 2>/dev/null || { cat "$log"; falla "El túnel $nombre terminó; revisa si el puerto está ocupado"; }
+    grep -q "^Forwarding from " "$log" && kill -0 "$pid" 2>/dev/null && curl -s -o /dev/null "$url" && { echo "Túnel $nombre listo ($url)"; return 0; }
     sleep 1
   done
   echo "--- salida de kubectl port-forward ($nombre) ---"; cat "$log"
@@ -40,13 +43,16 @@ abrir_tunel() {
 }
 
 paso "Esperando a que los pods estén listos"
-kubectl -n "$NS" wait --for=condition=Ready pod -l app=grafana --timeout=180s || falla "Grafana no quedó Ready"
-kubectl -n "$NS" wait --for=condition=Ready pod -l app=prometheus --timeout=180s || falla "Prometheus no quedó Ready"
+kubectl -n "$MONITORING_NS" wait --for=condition=Ready pod -l app=grafana --timeout=180s || falla "Grafana no quedó Ready"
+kubectl -n "$MONITORING_NS" wait --for=condition=Ready pod -l app=prometheus --timeout=180s || falla "Prometheus no quedó Ready"
 kubectl -n "$NS" wait --for=condition=Ready pod -l app=audits-api --timeout=180s || falla "audits-api no quedó Ready"
 kubectl -n "$NS" get pods
 
+paso "Asegurando el Service de métricas por réplica"
+kubectl apply -f "$REPO_ROOT/kubernetes/audits/metrics_service.yaml" || falla "No se pudo preparar audits-metrics"
+
 paso "Abriendo port-forwards (temporales)"
-abrir_tunel grafana    deploy/grafana    "$GRAFANA_PORT:3000" "http://localhost:$GRAFANA_PORT/api/health"
+abrir_tunel grafana    deploy/grafana    "$GRAFANA_PORT:3000" "http://localhost:$GRAFANA_PORT/api/health" "$MONITORING_NS"
 abrir_tunel audits-api deploy/audits-api "$API_PORT:8001"     "http://localhost:$API_PORT/health"
 
 paso "Importando dashboard en Grafana"
@@ -58,7 +64,7 @@ echo "$RESP" | grep -q '"status":"success"' || falla "Grafana no aceptó el dash
 
 paso "Generando tráfico de prueba (~1 minuto)"
 API="http://localhost:$API_PORT"
-for ronda in $(seq 1 30); do
+for ronda in $(seq 1 "${TRAFFIC_ROUNDS:-30}"); do
   id=$((900000 + RANDOM))
   curl -s -o /dev/null -X POST "$API/auditorias" -H 'Content-Type: application/json' \
     -d '{"id":'"$id"',"nombre":"Prueba metricas","usuario":"juan.cervantes","fecha":"2026-11-13T10:00:00"}'
@@ -76,8 +82,8 @@ echo
 paso "Listo"
 cat <<EOF
 Para ver los resultados abre los túneles en otra terminal y déjalos corriendo:
-  kubectl -n $NS port-forward deploy/prometheus 9090:9090
+  kubectl -n $MONITORING_NS port-forward deploy/prometheus 9090:9090
       -> http://localhost:9090/targets   (job "auditorias" en UP)
-  kubectl -n $NS port-forward deploy/grafana $GRAFANA_PORT:3000
+  kubectl -n $MONITORING_NS port-forward deploy/grafana $GRAFANA_PORT:3000
       -> http://localhost:$GRAFANA_PORT/d/audits-api   (usuario $GRAFANA_USER / $GRAFANA_PASS)
 EOF
