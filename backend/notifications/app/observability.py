@@ -7,6 +7,7 @@
     * http_requests_total            -> total de requests y por status_code
     * http_request_duration_seconds  -> latencia (histograma)
     * http_response_size_bytes       -> tamaño de las respuestas (histograma)
+    * http_requests_in_progress      -> requests en curso (gauge)
 - /health y /metrics no generan métricas ni logs (son ruido: las probes de
   Kubernetes y el scrape de Prometheus los llaman cada pocos segundos).
 """
@@ -21,7 +22,7 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from time import perf_counter
 
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Gauge, Histogram
 
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "notificaciones")
@@ -133,6 +134,12 @@ HTTP_RESPONSE_SIZE = Histogram(
     buckets=(0, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 65536),
 )
 
+HTTP_IN_PROGRESS = Gauge(
+    "http_requests_in_progress",
+    "Peticiones HTTP que se están atendiendo en este momento.",
+    ["method"],
+)
+
 
 # ---------------------------------------------------------------------------
 # Middleware ASGI: mide y loggea cada petición
@@ -155,6 +162,7 @@ class ObservabilityMiddleware:
         response_started = False
         error = None
         start = perf_counter()
+        HTTP_IN_PROGRESS.labels(method).inc()
 
         async def send_wrapper(message):
             nonlocal status_code, response_size, response_started
@@ -185,6 +193,7 @@ class ObservabilityMiddleware:
             else:
                 raise
         finally:
+            HTTP_IN_PROGRESS.labels(method).dec()
             duration = perf_counter() - start
 
             # Ruta "plantilla" (/notificaciones/{notification_id}) para que
