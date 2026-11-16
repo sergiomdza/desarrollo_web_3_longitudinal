@@ -75,6 +75,20 @@ PARCIAL 2
 - No se loggea: `/health`, `/metrics`, access log de uvicorn,
   credenciales ni la URI de MongoDB.
 
+Prometheus
+
+1. Desde la raíz del repositorio, seleccionar el contexto de Kubernetes:
+   kubectl config use-context kind-web3
+2. Aplicar el manifiesto compartido que contiene el ConfigMap:
+   kubectl apply -f kubernetes/monitoring_tools.yaml
+3. Reiniciar Prometheus para cargar la configuración:
+   kubectl rollout restart deployment/prometheus -n default
+4. Verificar que Prometheus esté disponible:
+   kubectl get pods -n default -l app=prometheus
+5. Habilitar el acceso local:
+   kubectl port-forward -n default svc/prometheus-service 9090:9090
+6. Abrir http://localhost:9090/targets y localizar el job solicitudes.
+7. Comprobar consultas (prometheus_queries.md).
 
 Grafana
 
