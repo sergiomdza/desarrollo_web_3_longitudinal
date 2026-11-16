@@ -19,6 +19,7 @@ configurar_logging()
 
 import database
 from models import Activo, ActivoCreate, EstadoActivo
+from metrics import instrumentar
 
 # Logger de los eventos de dominio del módulo. El formato JSON y los campos
 # "timestamp", "level" y "service" los agrega logging_config.py; aquí solo
@@ -30,6 +31,7 @@ app = FastAPI(
     description="Catálogo de activos: tipos de activos, ubicaciones físicas y disponibilidad por ubicación (Equipo 2).",
     version="0.1.0",
 )
+instrumentar(app)
 
 
 # --- Situaciones anómalas -----------------------------------------------------
