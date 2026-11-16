@@ -1,0 +1,207 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v3.5.0
+        imagePullPolicy: IfNotPresent
+        ports:
+          - containerPort: 9090
+        volumeMounts:
+          - name: prometheus-config
+            mountPath: /etc/prometheus
+          - name: prometheus-data
+            mountPath: /prometheus
+
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-config
+        - name: prometheus-data
+          persistentVolumeClaim:
+            claimName: prometheus-data
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-service
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - name: http
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+
+    scrape_configs:
+      - job_name: productos
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+            - products-service.default.svc.cluster.local:8000
+
+      - job_name: usuarios
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+            - users-service.default.svc.cluster.local:8000
+
+      - job_name: solicitudes
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+            - requests-service.default.svc.cluster.local:8000
+
+      - job_name: reportes
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+            - reports-service.default.svc.cluster.local:8000
+
+      - job_name: auditorias
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+            - audits-service.default.svc.cluster.local:8001
+
+      - job_name: notificaciones
+        metrics_path: /metrics
+        static_configs:
+          - targets:
+            - notifications-service.default.svc.cluster.local:8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  labels:
+    app: grafana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:12.1.1
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: GF_SECURITY_ADMIN_USER
+            valueFrom:
+              secretKeyRef:
+                name: grafana-secret
+                key: GRAFANA_USERNAME
+          - name: GF_SECURITY_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: grafana-secret
+                key: GRAFANA_PASSWORD
+        ports:
+          - containerPort: 3000
+        volumeMounts:
+          - name: datasources
+            mountPath: /etc/grafana/provisioning/datasources
+          - name: data
+            mountPath: /var/lib/grafana
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-config
+        - name: data
+          persistentVolumeClaim:
+            claimName: grafana-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-service
+spec:
+  selector:
+    app: grafana
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-config
+data:
+  datasource.yml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus-service.default.svc.cluster.local:9090
+        isDefault: true
+        editable: false
+      - name: Loki
+        uid: loki
+        type: loki
+        access: proxy
+        url: http://loki-service.default.svc.cluster.local:3100
+        isDefault: false
+        editable: false
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-secret
+type: Opaque
+stringData:
+  GRAFANA_USERNAME: grafana_admin
+  GRAFANA_PASSWORD: web3
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-data
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-data
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
