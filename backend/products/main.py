@@ -1,5 +1,6 @@
 import logging
 import re
+from contextlib import asynccontextmanager
 from typing import Any, NoReturn, Optional, Union
 
 from bson import ObjectId
@@ -11,7 +12,7 @@ from fastapi.responses import JSONResponse
 from pymongo import ReturnDocument
 from pymongo.errors import ConnectionFailure, PyMongoError
 
-from logging_config import configurar_logging
+from logging_config import ContextoRequestMiddleware, configurar_logging
 
 # Va antes de importar `database`: si ese import falla (por ejemplo, falta una
 # variable de entorno), el error ya sale en JSON.
@@ -26,12 +27,33 @@ from metrics import instrumentar
 # decimos QUÉ pasó y pasamos el contexto en `extra`.
 logger = logging.getLogger("categorias_ubicaciones")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Registra el inicio y el apagado del servicio (sin la URI de MongoDB)."""
+    mongo_disponible = database.ping()
+    logger.log(
+        logging.INFO if mongo_disponible else logging.WARNING,
+        "Servicio iniciado" if mongo_disponible else "Servicio iniciado sin conexión a MongoDB",
+        extra={
+            "version": app.version,
+            "database": database.MONGO_DB_NAME,
+            "mongo_disponible": mongo_disponible,
+        },
+    )
+    yield
+    logger.info("Servicio detenido", extra={"version": app.version})
+
+
 app = FastAPI(
     title="Categorías & Ubicaciones",
     description="Catálogo de activos: tipos de activos, ubicaciones físicas y disponibilidad por ubicación (Equipo 2).",
-    version="0.1.0",
+    version="0.2.0",
+    lifespan=lifespan,
 )
 instrumentar(app)
+# Agrega method, path y duration_ms a los logs de cada request (logging_config.py)
+app.add_middleware(ContextoRequestMiddleware)
 
 
 # --- Situaciones anómalas -----------------------------------------------------

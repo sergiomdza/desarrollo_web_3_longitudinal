@@ -11,7 +11,12 @@ import logging.config
 import os
 import re
 import sys
+import time
+from contextvars import ContextVar
 from datetime import datetime, timezone
+from typing import Any, Optional
+
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 # En Kubernetes llegan por el ConfigMap; en local, por docker-compose.yaml.
 # Tienen valor por defecto para que el servicio siempre pueda escribir logs.
@@ -62,17 +67,72 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(evento, ensure_ascii=False, default=str)
 
 
+# --- Contexto de la request ---------------------------------------------------
+# El middleware guarda aquí la request que se está atendiendo. Un ContextVar es
+# propio de cada request (aunque se atiendan varias a la vez), y el filtro lo
+# lee para agregar method, path y duration_ms a todo log emitido durante ella.
+# Así los endpoints solo pasan el contexto de dominio (activo_id, codigo...).
+_request_actual: ContextVar[Optional[dict[str, Any]]] = ContextVar("request_actual", default=None)
+
+SIN_RUTA = "sin_ruta"
+
+
+class ContextoRequestMiddleware:
+    """Middleware ASGI que marca el inicio de cada request para los logs."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        token = _request_actual.set({"scope": scope, "inicio": time.perf_counter()})
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            _request_actual.reset(token)
+
+
+class ContextoRequestFilter(logging.Filter):
+    """Agrega method, path y duration_ms a los logs emitidos durante una request."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        contexto = _request_actual.get()
+        if contexto is None:  # log fuera de una request (arranque, apagado...)
+            return True
+
+        scope = contexto["scope"]
+        # FastAPI deja en el scope la ruta que atendió la request. Se usa su
+        # PLANTILLA (/activos/{activo_id}), igual que en las métricas.
+        ruta = scope.get("route")
+        valores = {
+            "method": scope["method"],
+            "path": getattr(ruta, "path", SIN_RUTA),
+            "duration_ms": round((time.perf_counter() - contexto["inicio"]) * 1000, 2),
+        }
+        for nombre, valor in valores.items():
+            if not hasattr(record, nombre):  # lo que venga en extra={...} tiene prioridad
+                setattr(record, nombre, valor)
+        return True
+
+
 LOGGING_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "json": {"()": JsonFormatter},
     },
+    "filters": {
+        "contexto_request": {"()": ContextoRequestFilter},
+    },
     "handlers": {
         "stdout": {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
             "formatter": "json",
+            "filters": ["contexto_request"],
         },
     },
     # Todos los loggers terminan en el root: un solo handler y un solo formato.

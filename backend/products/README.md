@@ -236,7 +236,7 @@ línea por evento**, incluyendo los mensajes de Uvicorn. La configuración está
 [`logging_config.py`](logging_config.py) y `main.py` la aplica al arrancar.
 
 ```json
-{"timestamp": "2026-11-14T23:44:23.379+00:00", "level": "INFO", "service": "categorias-ubicaciones", "logger": "categorias_ubicaciones", "message": "Activo creado", "activo_id": "6af8f257645f8381ea36531c", "codigo": "TEC-900", "status_code": 201}
+{"timestamp": "2026-11-14T23:44:23.379+00:00", "level": "INFO", "service": "categorias-ubicaciones", "logger": "categorias_ubicaciones", "message": "Activo creado", "activo_id": "6af8f257645f8381ea36531c", "codigo": "TEC-900", "status_code": 201, "method": "POST", "path": "/activos", "duration_ms": 4.12}
 ```
 
 | Campo       | Contenido                                                             |
@@ -246,8 +246,14 @@ línea por evento**, incluyendo los mensajes de Uvicorn. La configuración está
 | `service`   | Nombre del servicio (`SERVICE_NAME`)                                  |
 | `logger`    | Quién lo escribió: `categorias_ubicaciones` (nosotros) o `uvicorn.error` |
 | `message`   | Qué pasó                                                              |
+| `method`, `path`, `duration_ms` | Solo en logs de una request: método, ruta **plantilla** (`/activos/{activo_id}`) y milisegundos desde que llegó la request |
 | otros       | Contexto que se pasa en `extra={...}`: `activo_id`, `status_code`...  |
 | `exception` | Solo en errores: el traceback completo, dentro del mismo registro     |
+
+`method`, `path` y `duration_ms` los agrega solo el filtro `ContextoRequestFilter`
+de `logging_config.py`: el middleware `ContextoRequestMiddleware` guarda la
+request en un `ContextVar` y el filtro la lee al escribir cada log. Así los
+endpoints solo pasan el contexto de dominio.
 
 - **Uvicorn también escribe en JSON:** le quitamos sus handlers de texto plano y
   sus mensajes (arranque, apagado, errores) pasan por nuestro formatter.
@@ -265,6 +271,8 @@ requests hubo y cuánto tardaron ya lo dicen las métricas.
 
 | Cuándo                                | Nivel     | `message`              | Contexto                                                        |
 | ------------------------------------- | --------- | ---------------------- | --------------------------------------------------------------- |
+| Arranque del servicio                 | `INFO` (`WARNING` si Mongo no responde) | `Servicio iniciado` | `version`, `database`, `mongo_disponible` (nunca la URI) |
+| Apagado del servicio                  | `INFO`    | `Servicio detenido`    | `version`                                                       |
 | `POST /activos` crea (201)            | `INFO`    | `Activo creado`        | `activo_id`, `codigo`, `status_code`                            |
 | `PUT /activos/{id}` actualiza (200)   | `INFO`    | `Activo actualizado`   | `activo_id`, `codigo`, `estado`, `status_code`                  |
 | `DELETE /activos/{id}` elimina (204)  | `INFO`    | `Activo eliminado`     | `activo_id`, `status_code`                                      |
@@ -418,7 +426,7 @@ segundos aparecen en el dashboard; el panel de status codes debe mostrar 200,
 
 El workflow
 [`categorias_ubicaciones_build_image.yaml`](../../.github/workflows/categorias_ubicaciones_build_image.yaml)
-corre en cada push a la rama `equipo_2`: construye la imagen desde
+corre en cada push a la rama `equipo_2_p2`: construye la imagen desde
 `backend/products` para `linux/amd64` y `linux/arm64`, y la publica en GitHub
 Container Registry con tres tags:
 

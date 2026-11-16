@@ -8,3 +8,5 @@ __pycache__/
 
 # Variables de entorno locales
 .env
+# macOS
+.DS_Store
