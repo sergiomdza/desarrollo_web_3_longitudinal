@@ -27,7 +27,11 @@ from app.models import (
     NotificacionResponse,
     NotificacionUpdate,
 )
-from app.observability import ObservabilityMiddleware, configure_logging
+from app.observability import (
+    EXCLUDED_PATHS,
+    ObservabilityMiddleware,
+    configure_logging,
+)
 
 
 configure_logging()
@@ -86,6 +90,9 @@ async def log_validation_error(request: Request, exc: RequestValidationError):
 
 @app.exception_handler(StarletteHTTPException)
 async def log_http_error(request: Request, exc: StarletteHTTPException):
+    if request.url.path in EXCLUDED_PATHS:
+        return await http_exception_handler(request, exc)
+
     if exc.status_code == status.HTTP_404_NOT_FOUND:
         message = "Recurso no encontrado"
     elif exc.status_code == status.HTTP_409_CONFLICT:
@@ -147,10 +154,10 @@ async def health():
             "database": "ok",
         }
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"MongoDB no disponible: {exc}",
+            detail="MongoDB no disponible.",
         )
 
 
