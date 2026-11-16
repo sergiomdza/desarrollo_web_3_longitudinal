@@ -1,0 +1,68 @@
+# ConfigMap alloy-config del stack de clase (namespace default).
+#
+# Es la configuración del profesor (kubernetes/logging.yaml de main) con solo
+# 2 cambios para recolectar también los logs del Equipo 2:
+#   1. namespaces: se agrega "proyecto-final".
+#   2. selector: se agrega el label app=categorias-ubicaciones.
+# Requiere alloy_rbac.yaml (permisos de Alloy en proyecto-final).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-config
+  namespace: default
+data:
+  config.alloy: |
+    // 1. Descubre pods vía la API de Kubernetes (requiere el RBAC alloy-logs).
+    discovery.kubernetes "backend" {
+      role = "pod"
+
+      // Busca en default (servicios de clase) y en proyecto-final (Equipo 2).
+      namespaces {
+        names = ["default", "proyecto-final"]
+      }
+
+      // Filtra por label: los 6 servicios backend de clase + categorias-ubicaciones.
+      selectors {
+        role  = "pod"
+        label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,notifications-backend,categorias-ubicaciones)"
+      }
+    }
+
+    // 2. Convierte metadatos internos (__meta_*) en labels visibles en Loki.
+    // Los __meta_* se descartan si no se copian aquí.
+    discovery.relabel "backend_logs" {
+      targets = discovery.kubernetes.backend.targets
+
+      rule {
+        source_labels = ["__meta_kubernetes_namespace"]
+        target_label  = "namespace"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_label_app"]
+        target_label  = "app"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_name"]
+        target_label  = "pod"
+      }
+
+      rule {
+        source_labels = ["__meta_kubernetes_pod_container_name"]
+        target_label  = "container"
+      }
+    }
+
+    // 3. Lee los logs de cada pod (vía API de Kubernetes) y los manda a loki.write.
+    loki.source.kubernetes "backend" {
+      targets    = discovery.relabel.backend_logs.output
+      forward_to = [loki.write.local.receiver]
+    }
+
+    // 4. Envía los logs al endpoint de push de Loki.
+    loki.write "local" {
+      endpoint {
+        url = "http://loki-service.default.svc.cluster.local:3100/loki/api/v1/push"
+      }
+    }
