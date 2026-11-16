@@ -40,3 +40,37 @@ COBOS BRACAMONTE JOSHUA ARTURO
 GUILLERMO PIÑA ANDERSON
 ROSADO SANTIAGO ANGEL EFREN
 YUPIT BENITEZ ROBERTO
+
+-------------------------------------------
+PARCIAL 2
+## Contrato de observabilidad (Proyecto 2)
+
+### Identificación del servicio
+- Label `app` del pod y valor de `service` en los logs: `requests-backend`
+    (Se requiere cambiar el label por que el stack de monitoreo del profe lo busca como `requests-backend`
+                                                                v
+                                                                v
+                                                                v    
+    label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,notifications-backend)" )
+- Se configura en el ConfigMap con la variable `SERVICE_NAME`
+
+### Métricas (endpoint `/metrics`)
+| Métrica | Tipo | Labels |
+|---|---|---|
+| `http_requests_total` | counter | app, method, handler, status |
+| `http_request_duration_seconds` | histogram | app, method, handler |
+| `http_response_size_bytes` | histogram | app, method, handler |
+
+- `handler` es la plantilla de la ruta (`/requests/{id}`), nunca el ID real.
+- `status` es el código exacto (200, 201, 404, 422, 500), no agrupado (2xx).
+- No se miden `/health` ni `/metrics`.
+
+### Logs
+- JSON, una línea por evento, en stdout.
+- Campos obligatorios: `timestamp`, `level`, `service`, `message`.
+- Campos de contexto cuando apliquen: `request_id`, `method`, `path`,
+  `status_code`, `duration_ms`, `error`.
+- Niveles: INFO (crear/actualizar/eliminar, inicio/apagado),
+  WARNING (no encontrado, validación fallida), ERROR (fallas de MongoDB).
+- No se loggea: `/health`, `/metrics`, access log de uvicorn,
+  credenciales ni la URI de MongoDB.
