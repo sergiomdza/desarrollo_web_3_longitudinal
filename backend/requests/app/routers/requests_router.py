@@ -1,3 +1,5 @@
+from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import APIRouter, HTTPException, status
 from pydantic import ValidationError
 from pymongo.errors import PyMongoError
@@ -5,6 +7,18 @@ from ..models.request import Requests
 from ..database import requests_collection
 
 router = APIRouter()
+
+
+def to_object_id(id: str) -> ObjectId:
+    """Mongo guarda _id como ObjectId; buscar con el string nunca coincide.
+    Un id con formato inválido tampoco puede existir, así que es 404."""
+    try:
+        return ObjectId(id)
+    except InvalidId:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No existe una solicitud con ese ID",
+        )
 
 @router.get(
     "/requests",
@@ -36,20 +50,27 @@ def get_requests():
     response_model=Requests,
     status_code=status.HTTP_200_OK,
     responses={
+        404: {"error": "No existe una solicitud con ese ID"},
         500: {"error": "imcumplimiento con el modelo pydantic"},
         503: {"error": "no hay conexion con al base de datos"},
     })
 def get_request_by_id(id: str):
     try:
-        document = requests_collection.find_one({"_id": id})
+        document = requests_collection.find_one({"_id": to_object_id(id)})
     except PyMongoError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="no se puedo conectar con la base de datos",
         )
 
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No existe una solicitud con ese ID",
+        )
+
     try:
-        return document
+        return Requests(**document)
     except ValidationError:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -69,7 +90,7 @@ def update_request(id: str, updated_data: Requests):
   try:
       update_dict = updated_data.model_dump(exclude={"id"}) 
       result = requests_collection.find_one_and_update(
-        {"_id": id},
+        {"_id": to_object_id(id)},
         {"$set": update_dict},
         return_document=True 
         )
@@ -97,7 +118,7 @@ def update_request(id: str, updated_data: Requests):
 )
 def delete_request(id: str):
     try:
-        result = requests_collection.delete_one({"_id": id})
+        result = requests_collection.delete_one({"_id": to_object_id(id)})
     except PyMongoError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
