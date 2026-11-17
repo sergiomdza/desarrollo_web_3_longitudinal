@@ -19,7 +19,7 @@ instrumentator = Instrumentator(
     should_ignore_untemplated=True,
     should_instrument_requests_inprogress=True,
     inprogress_labels=True,
-    excluded_handlers=["/metrics"],
+    excluded_handlers=["/metrics", "/docs", "/usuarios/health", "/openapi.json"],
     body_handlers=[".*"],
 )
 
