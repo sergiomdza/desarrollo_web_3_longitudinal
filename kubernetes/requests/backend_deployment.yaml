@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: requests-backend
-          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-requests:equipo_4_p2-latest
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-requests:equipo_4-latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
