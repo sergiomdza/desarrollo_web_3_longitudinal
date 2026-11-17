@@ -4,7 +4,7 @@
 ## 1. Disponibilidad del microservicio
 
 ```promql
-up{job="solicitudes",app="backend-requests"}
+up{job="solicitudes",app="requests-backend"}
 ```
 
 Resultado esperado: 1 (UP).
@@ -13,7 +13,7 @@ Resultado esperado: 1 (UP).
 
 ```promql
 sum by (method, handler) (
-  http_requests_total{app="backend-requests"}
+  http_requests_total{app="requests-backend"}
 )
 ```
 
@@ -21,7 +21,7 @@ sum by (method, handler) (
 
 ```promql
 sum by (method, handler) (
-  rate(http_requests_total{app="backend-requests"}[5m])
+  rate(http_requests_total{app="requests-backend"}[5m])
 )
 ```
 
@@ -29,7 +29,7 @@ sum by (method, handler) (
 
 ```promql
 sum by (status) (
-  increase(http_requests_total{app="backend-requests"}[5m])
+  increase(http_requests_total{app="requests-backend"}[5m])
 )
 ```
 
@@ -38,13 +38,13 @@ sum by (status) (
 ```promql
 sum by (method, handler) (
   rate(http_request_duration_seconds_sum{
-    app="backend-requests"
+    app="requests-backend"
   }[5m])
 )
 /
 sum by (method, handler) (
   rate(http_request_duration_seconds_count{
-    app="backend-requests"
+    app="requests-backend"
   }[5m])
 )
 ```
@@ -56,7 +56,7 @@ histogram_quantile(
   0.95,
   sum by (le, handler) (
     rate(http_request_duration_seconds_bucket{
-      app="backend-requests"
+      app="requests-backend"
     }[5m])
   )
 )
@@ -67,13 +67,13 @@ histogram_quantile(
 ```promql
 sum(
   rate(http_response_size_bytes_sum{
-    app="backend-requests"
+    app="requests-backend"
   }[5m])
 )
 /
 sum(
   rate(http_response_size_bytes_count{
-    app="backend-requests"
+    app="requests-backend"
   }[5m])
 )
 ```
