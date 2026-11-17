@@ -45,6 +45,17 @@ class ContextFilter(logging.Filter):
         return True
 
 
+def _plano(value):
+    """Listas y diccionarios se guardan como texto JSON compacto.
+
+    Loki (| json) no interpreta bien arreglos de objetos anidados y marca la línea
+    con JSONParserErr; así cada campo es un valor simple y la línea siempre se parsea.
+    """
+    if isinstance(value, (list, tuple, dict)):
+        return redact(json.dumps(value, ensure_ascii=False, default=str, separators=(",", ":")))
+    return value
+
+
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload = {
@@ -55,7 +66,7 @@ class JsonFormatter(logging.Formatter):
         }
         for key, value in record.__dict__.items():
             if key not in _RESERVED and not key.startswith("_"):
-                payload[key] = value
+                payload[key] = _plano(value)
         if record.exc_info and record.exc_info[0] is not None:
             exc_type, exc, _ = record.exc_info
             payload["error"] = redact(f"{exc_type.__name__}: {exc}")
@@ -89,3 +100,6 @@ def setup_logging() -> None:
         }
     )
     logging.getLogger("uvicorn.access").disabled = True
+    # Los warnings de Python (pydantic, pymongo...) se escriben en texto plano en stderr:
+    # se redirigen al logging para que también salgan en JSON.
+    logging.captureWarnings(True)
