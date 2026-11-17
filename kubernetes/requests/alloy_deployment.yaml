@@ -89,7 +89,7 @@ data:
     // 4. Envía los logs al endpoint de push de Loki (desplegado en default por logging.yaml).
     loki.write "local" {
       endpoint {
-        url = "http://loki-service.default.svc.cluster.local:3100/loki/api/v1/push"
+        url = "http://loki-service.proyecto-final.svc.cluster.local:3100/loki/api/v1/push"
       }
     }
 ---
