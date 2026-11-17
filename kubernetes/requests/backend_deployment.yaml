@@ -65,7 +65,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-requests-service
+  name: requests-service
   namespace: proyecto-final
 spec:
   selector:
