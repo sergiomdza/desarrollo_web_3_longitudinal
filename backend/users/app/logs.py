@@ -9,7 +9,7 @@ from fastapi import Request
 
 logger = logging.getLogger("usuarios")
 
-RUTAS_SIN_LOG = {"/metrics", "/usuarios/health"}
+RUTAS_SIN_LOG = {"/metrics", "/usuarios/health", "/openapi.json", "/docs"}
 
 
 class JsonFormatter(logging.Formatter):
