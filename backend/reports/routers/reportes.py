@@ -1,4 +1,5 @@
-"""Endpoints CRUD de la entidad `reporte`."""
+"""Endpoints CRUD de la entidad `reporte`, con logs de dominio."""
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
@@ -9,6 +10,7 @@ from schemas import ReporteCreate, ReporteOut, ReporteUpdate
 from utils import parse_id, to_out
 
 router = APIRouter(prefix="/reportes", tags=["reportes"])
+logger = logging.getLogger("reportes.router")
 
 
 @router.post("", response_model=ReporteOut, status_code=status.HTTP_201_CREATED)
@@ -17,6 +19,10 @@ def crear_reporte(reporte: ReporteCreate):
     doc["creado_en"] = datetime.now(timezone.utc)
     result = reportes.insert_one(doc)
     doc["_id"] = result.inserted_id
+    logger.info(
+        "Reporte creado",
+        extra={"reporte_id": str(result.inserted_id), "tipo": reporte.tipo, "status_code": 201},
+    )
     return to_out(doc)
 
 
@@ -29,6 +35,7 @@ def listar_reportes(skip: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=
 def obtener_reporte(reporte_id: str):
     doc = reportes.find_one({"_id": parse_id(reporte_id)})
     if doc is None:
+        logger.warning("Reporte no encontrado", extra={"reporte_id": reporte_id, "status_code": 404})
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
     return to_out(doc)
 
@@ -44,7 +51,15 @@ def actualizar_reporte(reporte_id: str, cambios: ReporteUpdate):
             {"_id": oid}, {"$set": data}, return_document=ReturnDocument.AFTER
         )
     if doc is None:
+        logger.warning(
+            "Reporte no encontrado al actualizar",
+            extra={"reporte_id": reporte_id, "status_code": 404},
+        )
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    logger.info(
+        "Reporte actualizado",
+        extra={"reporte_id": reporte_id, "campos_actualizados": sorted(data), "status_code": 200},
+    )
     return to_out(doc)
 
 
@@ -52,5 +67,10 @@ def actualizar_reporte(reporte_id: str, cambios: ReporteUpdate):
 def eliminar_reporte(reporte_id: str):
     result = reportes.delete_one({"_id": parse_id(reporte_id)})
     if result.deleted_count == 0:
+        logger.warning(
+            "Reporte no encontrado al eliminar",
+            extra={"reporte_id": reporte_id, "status_code": 404},
+        )
         raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    logger.info("Reporte eliminado", extra={"reporte_id": reporte_id, "status_code": 204})
     return Response(status_code=status.HTTP_204_NO_CONTENT)

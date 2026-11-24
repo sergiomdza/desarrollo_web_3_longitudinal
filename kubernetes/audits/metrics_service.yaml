@@ -1,0 +1,14 @@
+# Prometheus descubre cada pod sin balancear los scrapes del contador.
+apiVersion: v1
+kind: Service
+metadata:
+  name: audits-metrics
+  namespace: proyecto-final
+spec:
+  clusterIP: None
+  selector:
+    app: audits-api
+  ports:
+    - name: http
+      port: 8001
+      targetPort: http

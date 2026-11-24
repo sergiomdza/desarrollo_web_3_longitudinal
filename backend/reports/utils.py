@@ -1,7 +1,10 @@
-"""Funciones auxiliares para convertir documentos y validar IDs de Mongo."""
+import logging
+
 from bson import ObjectId
 from bson.errors import InvalidId
 from fastapi import HTTPException, status
+
+logger = logging.getLogger("reportes.utils")
 
 
 def to_out(doc: dict) -> dict:
@@ -15,6 +18,10 @@ def parse_id(reporte_id: str) -> ObjectId:
     try:
         return ObjectId(reporte_id)
     except (InvalidId, TypeError):
+        logger.warning(
+            "ID de reporte con formato inválido",
+            extra={"reporte_id": reporte_id[:64], "status_code": 422},
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="ID con formato inválido",
