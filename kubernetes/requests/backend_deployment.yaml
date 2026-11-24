@@ -1,22 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-requests
+  name: requests-backend
   namespace: proyecto-final
   labels:
-    app: backend-requests
+    app: requests-backend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: backend-requests
+      app: requests-backend
   template:
     metadata:
       labels:
-        app: backend-requests
+        app: requests-backend
+
     spec:
       containers:
-        - name: backend-requests
+        - name: requests-backend
           image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-requests:equipo_4-latest
           imagePullPolicy: Always
           ports:
@@ -47,6 +48,18 @@ spec:
                   name: backend-config
                   key: MONGO_DB_NAME
 
+            - name: SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: SERVICE_NAME
+
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: LOG_LEVEL
+
           readinessProbe:
             httpGet:
               path: /health
@@ -65,11 +78,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-requests-service
+  name: requests-service
   namespace: proyecto-final
 spec:
   selector:
-    app: backend-requests
+    app: requests-backend
   ports:
     - protocol: TCP
       port: 8000
