@@ -83,9 +83,15 @@ data:
 
       - job_name: auditorias
         metrics_path: /metrics
-        static_configs:
-          - targets:
-            - audits-service.default.svc.cluster.local:8001
+        dns_sd_configs:
+          - names:
+              - audits-metrics.proyecto-final.svc.cluster.local
+            type: A
+            port: 8001
+            refresh_interval: 15s
+        relabel_configs:
+          - target_label: app
+            replacement: audits-api
 
       - job_name: notificaciones
         metrics_path: /metrics
@@ -162,14 +168,14 @@ data:
       - name: Prometheus
         type: prometheus
         access: proxy
-        url: http://prometheus-service.default.svc.cluster.local:9090
+        url: http://prometheus-service.proyecto-final.svc.cluster.local:9090
         isDefault: true
         editable: false
       - name: Loki
         uid: loki
         type: loki
         access: proxy
-        url: http://loki-service.default.svc.cluster.local:3100
+        url: http://loki-service.proyecto-final.svc.cluster.local:3100
         isDefault: false
         editable: false
 ---
@@ -186,7 +192,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: grafana-data
-  namespace: default
+  namespace: proyecto-final
 spec:
   accessModes:
     - ReadWriteOnce
@@ -198,7 +204,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: prometheus-data
-  namespace: default
+  namespace: proyecto-final
 spec:
   accessModes:
     - ReadWriteOnce

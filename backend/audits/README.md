@@ -227,6 +227,64 @@ kubernetes/audits/
 
 ---
 
+Cambiar el entorno de default a proyecto-final
+
+Ejecutar el comando
+```bash
+kubectl apply -f monitoring_tools.yaml -n proyecto-final
+```
+---
+
+## Métricas (Prometheus + Grafana)
+
+La instrumentación está en `app/main.py` (librería `prometheus-fastapi-instrumentator`) y se expone en `/metrics`. Las rutas se registran con su plantilla (`/auditorias/{id}`) y se excluyen `/health` y `/metrics`.
+
+| Métrica | Tipo | Labels | Panel |
+|---|---|---|---|
+| `http_requests_total` | Counter | handler, method, status | Total de requests / Requests por status code |
+| `http_request_duration_seconds` | Histogram (s) | handler, method | Latencia p50/p95/p99 |
+| `http_requests_inprogress` | Gauge | handler, method | Requests en curso |
+| `http_response_size_bytes` | Histogram (bytes) | handler, method | Tamaño de las respuestas |
+
+Prometheus agrega el label `app="audits-api"` al job `auditorias`, y el dashboard (`kubernetes/audits/grafana/audits-dashboard.json`, uid `audits-api`) filtra por ese label.
+
+Para levantar todo en Kind e importar el dashboard:
+
+```bash
+bash kubernetes/audits/levantar_metricas_audits.sh
+```
+
+---
+
+## Formato de logs (JSON)
+
+El logger se configura en `app/logging_config.py` y se aplica al inicio de `app/main.py` (antes de importar la base de datos). No usa librerías extra: es `logging` de la librería estándar con un `JsonFormatter` propio.
+
+- Cada evento sale en **stdout** como **un objeto JSON por línea**, que Alloy recoge y envía a Loki.
+- Campos fijos: `timestamp` (UTC, ISO 8601), `level`, `service`, `logger` y `message`.
+- Campos de contexto: lo que se pase en `extra` se agrega al JSON.
+- Excepciones: el tipo, el mensaje y el traceback van en el campo `error` **del mismo registro**, no en líneas sueltas. También las excepciones no controladas al arrancar (p. ej. si falta `MONGO_URI`).
+- Uvicorn: se quitan sus handlers de texto plano para que sus mensajes (arranque, apagado, errores) salgan con el mismo formato JSON. El **access log** (`uvicorn.access`, una línea por request, incluidas `/health` y `/metrics`) queda desactivado.
+- Datos sensibles: si un mensaje llegara a incluir una URI `mongodb://usuario:contraseña@...`, las credenciales se reemplazan por `***:***`.
+- `SERVICE_NAME` y `LOG_LEVEL` se leen del ConfigMap `audits-config`.
+
+Uso desde el código:
+
+```python
+from app.logging_config import get_logger
+
+logger = get_logger("app")
+logger.info("Auditoría creada", extra={"auditoria_id": 5})
+```
+
+```json
+{"timestamp": "2026-11-15T23:41:09.027Z", "level": "INFO", "service": "audits-api", "logger": "app", "message": "Auditoría creada", "auditoria_id": 5}
+```
+
+En Grafana (Explore -> Loki): `{app="audits-api"} | json`
+
+---
+
 ## Integrantes del equipo
 
 **Equipo 1**
