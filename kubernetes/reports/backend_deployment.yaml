@@ -6,6 +6,9 @@ metadata:
 data:
   MONGO_DB: "desarrollo_web_3"
   MONGO_COLLECTION: "reportes_analitica"
+  SERVICE_NAME: "reportes-analitica"
+  APP_NAME: "reports-backend"
+  LOG_LEVEL: "INFO"
 ---
 apiVersion: v1
 kind: Secret

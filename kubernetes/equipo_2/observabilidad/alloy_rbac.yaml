@@ -1,0 +1,30 @@
+# Permite al ServiceAccount "alloy" (namespace default) listar los pods de
+# proyecto-final y leer sus logs. Es el mismo Role del profesor (alloy-logs
+# en default), pero en nuestro namespace: un Role solo da permisos dentro
+# de su propio namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: alloy-logs
+  namespace: proyecto-final
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: alloy-logs
+  namespace: proyecto-final
+subjects:
+  - kind: ServiceAccount
+    name: alloy
+    namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: alloy-logs

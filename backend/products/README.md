@@ -68,6 +68,8 @@ backend/products/
 ├── main.py                  # App FastAPI y endpoints
 ├── models.py                # Modelos Pydantic
 ├── database.py              # Conexión a MongoDB (configuración por variables de entorno)
+├── logging_config.py        # Logs en JSON (formatter + configuración de Uvicorn)
+├── metrics.py               # Métricas de Prometheus y ruta /metrics
 ├── scripts/seed_activos.py  # Crea las colecciones e inserta 10 activos
 ├── tests/                   # Pruebas con pytest
 ├── pyproject.toml           # Dependencias (Poetry)
@@ -85,7 +87,14 @@ kubernetes/equipo_2/
 ├── secret.yaml              # MONGO_URI hacia el Mongo común
 ├── backend_configmap.yaml   # Nombre de la base y de las colecciones
 ├── backend_deployment.yaml  # Deployment del API (2 réplicas) + Service
-└── setup_app.sh             # Aplica todo en orden
+├── setup_app.sh             # Aplica todo en orden
+└── observabilidad/          # Conexión con Prometheus y Alloy del stack de clase
+    ├── metrics_service.yaml     # Service headless para raspar cada pod
+    ├── prometheus_config.yaml   # Jobs del profesor + job categorias-ubicaciones
+    ├── alloy_config.yaml        # Config del profesor + namespace proyecto-final
+    ├── alloy_rbac.yaml          # Permisos de Alloy en proyecto-final
+    ├── grafana_dashboard.json   # Dashboard del módulo, listo para importar en Grafana
+    └── setup_observabilidad.sh  # Aplica todo y reinicia Prometheus y Alloy
 
 .github/workflows/
 └── categorias_ubicaciones_build_image.yaml  # CI/CD: build y push a GHCR
@@ -220,11 +229,204 @@ docker compose up -d --build      # API + MongoDB en http://localhost:8000
 docker compose down -v            # apagar y borrar datos
 ```
 
+## Logs
+
+Todo lo que el servicio escribe sale por la salida estándar en **JSON, una
+línea por evento**, incluyendo los mensajes de Uvicorn. La configuración está en
+[`logging_config.py`](logging_config.py) y `main.py` la aplica al arrancar.
+
+```json
+{"timestamp": "2026-11-14T23:44:23.379+00:00", "level": "INFO", "service": "categorias-ubicaciones", "logger": "categorias_ubicaciones", "message": "Activo creado", "activo_id": "6af8f257645f8381ea36531c", "codigo": "TEC-900", "status_code": 201, "method": "POST", "path": "/activos", "duration_ms": 4.12}
+```
+
+| Campo       | Contenido                                                             |
+| ----------- | --------------------------------------------------------------------- |
+| `timestamp` | Fecha y hora del evento en UTC (ISO 8601)                             |
+| `level`     | `INFO`, `WARNING`, `ERROR` o `CRITICAL`                               |
+| `service`   | Nombre del servicio (`SERVICE_NAME`)                                  |
+| `logger`    | Quién lo escribió: `categorias_ubicaciones` (nosotros) o `uvicorn.error` |
+| `message`   | Qué pasó                                                              |
+| `method`, `path`, `duration_ms` | Solo en logs de una request: método, ruta **plantilla** (`/activos/{activo_id}`) y milisegundos desde que llegó la request |
+| otros       | Contexto que se pasa en `extra={...}`: `activo_id`, `status_code`...  |
+| `exception` | Solo en errores: el traceback completo, dentro del mismo registro     |
+
+`method`, `path` y `duration_ms` los agrega solo el filtro `ContextoRequestFilter`
+de `logging_config.py`: el middleware `ContextoRequestMiddleware` guarda la
+request en un `ContextVar` y el filtro la lee al escribir cada log. Así los
+endpoints solo pasan el contexto de dominio.
+
+- **Uvicorn también escribe en JSON:** le quitamos sus handlers de texto plano y
+  sus mensajes (arranque, apagado, errores) pasan por nuestro formatter.
+- **El access log de Uvicorn está apagado:** no hay una línea por cada request,
+  así que `/health` y `/metrics` no generan ruido.
+- **Los errores que tumban el proceso** (por ejemplo, falta una variable de
+  entorno) y los warnings de Python también salen en JSON.
+- **La URI de MongoDB nunca aparece:** el formatter la reemplaza por
+  `mongodb://***` en el mensaje y en el traceback.
+
+### Qué se registra y por qué
+
+Los logs cuentan **qué le pasó a los activos** y **qué salió mal**; cuántas
+requests hubo y cuánto tardaron ya lo dicen las métricas.
+
+| Cuándo                                | Nivel     | `message`              | Contexto                                                        |
+| ------------------------------------- | --------- | ---------------------- | --------------------------------------------------------------- |
+| Arranque del servicio                 | `INFO` (`WARNING` si Mongo no responde) | `Servicio iniciado` | `version`, `database`, `mongo_disponible` (nunca la URI) |
+| Apagado del servicio                  | `INFO`    | `Servicio detenido`    | `version`                                                       |
+| `POST /activos` crea (201)            | `INFO`    | `Activo creado`        | `activo_id`, `codigo`, `status_code`                            |
+| `PUT /activos/{id}` actualiza (200)   | `INFO`    | `Activo actualizado`   | `activo_id`, `codigo`, `estado`, `status_code`                  |
+| `DELETE /activos/{id}` elimina (204)  | `INFO`    | `Activo eliminado`     | `activo_id`, `status_code`                                      |
+| GET/PUT/DELETE de un ID que no existe | `WARNING` | `Activo no encontrado` | `activo_id`, `operacion`, `status_code: 404`                    |
+| Body o query inválido (422)           | `WARNING` | `Validación fallida`   | `operacion`, `errores` (campo + motivo, sin los valores)        |
+| Falla de MongoDB (503 o 500)          | `ERROR`   | `Error de MongoDB`     | `operacion`, `error_type`, `mongo_code`, `error_detail` recortado |
+
+- **Los cambios al catálogo van en `INFO`** con el `activo_id`, para poder
+  reconstruir la historia de un activo sin leer el código.
+- **404 y 422 van en `WARNING`, no en `ERROR`:** el servicio funcionó bien, fue
+  el cliente el que pidió algo que no existe o mandó datos inválidos.
+- **`ERROR` se reserva para fallas nuestras** (MongoDB caído o respondiendo con
+  error), que son las que necesitan que alguien actúe. La causa va en el mismo
+  JSON, sin traceback de varias líneas.
+- **Los GET exitosos no se registran:** las lecturas no cambian nada y se
+  repiten mucho; registrarlas sería ruido.
+- **El 422 no incluye lo que mandó el cliente:** basta con saber qué campo falló
+  y por qué; el body puede ser grande o traer datos que no queremos guardar.
+
+Dos variables de entorno opcionales, definidas en el ConfigMap
+`categorias-ubicaciones-config` y en `docker-compose.yaml`:
+
+| Variable       | Valor por defecto        | Para qué sirve                    |
+| -------------- | ------------------------ | --------------------------------- |
+| `SERVICE_NAME` | `categorias-ubicaciones` | Campo `service` de cada log       |
+| `LOG_LEVEL`    | `INFO`                   | Nivel mínimo que se escribe       |
+
+## Métricas y observabilidad
+
+El servicio expone métricas en formato Prometheus en `GET /metrics`. Están
+definidas en [`metrics.py`](metrics.py); `main.py` solo llama a
+`instrumentar(app)`.
+
+| Métrica                         | Tipo      | Labels                 |
+| ------------------------------- | --------- | ---------------------- |
+| `http_requests_total`           | Counter   | `method`, `path`       |
+| `http_responses_total`          | Counter   | `path`, `status_code`  |
+| `http_request_duration_seconds` | Histogram | `method`, `path`       |
+| `http_response_size_bytes`      | Histogram | `method`, `path`       |
+
+- **`path` es la ruta plantilla** (`/activos/{activo_id}`), nunca el ID real:
+  una serie por endpoint, no una por activo. Las rutas que no existen se
+  registran como `sin_ruta`.
+- **Histogramas** para poder calcular p95/p99 con `histogram_quantile`; un
+  promedio esconde las requests lentas. Buckets de tamaño: 100 B a 100 KB.
+- **`/health` y `/metrics` también se cuentan.** Los probes de Kubernetes llaman
+  a `/health` cada 5 s, así que en los dashboards conviene filtrar
+  `path!~"/health|/metrics"`.
+
+### Conectarlo con Prometheus, Loki y Alloy
+
+Requisitos en el namespace `default` (stack de clase, rama `main`):
+
+- `kubernetes/monitoring_tools.yaml`: Prometheus y Grafana.
+- `kubernetes/logging.yaml`: Loki y Alloy.
+
+> ⚠️ En `monitoring_tools.yaml` el ConfigMap `grafana-config` dice
+> `apiVersion: apps/v1` y falla al aplicarse. Apliquen ese bloque con
+> `apiVersion: v1`; si no, Grafana no tiene el datasource de Loki.
+
+Con el módulo ya desplegado (`setup_app.sh`):
+
+```bash
+./kubernetes/equipo_2/observabilidad/setup_observabilidad.sh
+```
+
+El script aplica los archivos de `observabilidad/` y reinicia Prometheus y
+Alloy. `prometheus_config.yaml` y `alloy_config.yaml` son copias de la
+configuración del profesor con nuestros cambios agregados: si el profesor
+cambia la suya, hay que copiar sus cambios ahí antes de volver a aplicar.
+
+**Cómo encuentra Prometheus los pods:** el Service
+`categorias-ubicaciones-metrics` es headless (`clusterIP: None`), así que su
+DNS devuelve la IP de cada pod en lugar de una IP que balancea. El job
+`categorias-ubicaciones` usa `dns_sd_configs` sobre ese nombre y raspa cada
+réplica por separado; con un Service normal, los contadores saltarían entre
+réplicas.
+
+**Cómo encuentra Alloy los logs:** su `discovery.kubernetes` busca también en
+`proyecto-final` pods con `app=categorias-ubicaciones`. El Role y RoleBinding
+`alloy-logs` de `alloy_rbac.yaml` le dan permiso de leerlos.
+
+### Verificar
+
+```bash
+# Métricas de un pod
+kubectl port-forward -n proyecto-final service/categorias-ubicaciones-service 8000:8000
+curl -s localhost:8000/metrics | grep ^http_
+
+# Prometheus -> http://localhost:9090/targets
+# Debe mostrar el job categorias-ubicaciones con 2 endpoints en UP.
+kubectl port-forward -n default service/prometheus-service 9090:9090
+
+# Grafana -> http://localhost:3000 -> Explore -> Loki
+# {app="categorias-ubicaciones"} debe traer logs de los 2 pods.
+kubectl port-forward -n default service/grafana-service 3000:3000
+```
+
+### Dashboard de Grafana
+
+El dashboard **Categorías & Ubicaciones** está guardado en
+[`grafana_dashboard.json`](../../kubernetes/equipo_2/observabilidad/grafana_dashboard.json).
+Todas sus consultas filtran por `app="categorias-ubicaciones"`, suman las 2
+réplicas con `sum by (...)` y dejan fuera `/health` y `/metrics` para que los
+probes no tapen el tráfico real.
+
+| Panel                                    | Métrica                         | Consulta principal                                                                                                     |
+| ---------------------------------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Requests por segundo, por método y ruta  | `http_requests_total`           | `sum by (method, path) (rate(http_requests_total{...}[1m]))`                                                           |
+| Respuestas por status code               | `http_responses_total`          | `sum by (status_code) (increase(http_responses_total{...}[1m]))`                                                       |
+| Respuestas por ruta y status code        | `http_responses_total`          | `sum by (path, status_code) (increase(http_responses_total{...}[$__range]))`                                           |
+| Latencia p50 / p95 / p99                 | `http_request_duration_seconds` | `histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{...}[5m])))`                          |
+| Latencia p95, por método y ruta          | `http_request_duration_seconds` | `histogram_quantile(0.95, sum by (le, method, path) (rate(http_request_duration_seconds_bucket{...}[5m])))`            |
+| Tamaño promedio de respuesta             | `http_response_size_bytes`      | `sum by (method, path) (rate(..._sum{...}[5m])) / sum by (method, path) (rate(..._count{...}[5m]))`                    |
+| Tamaño de respuesta p95                  | `http_response_size_bytes`      | `histogram_quantile(0.95, sum by (le, method, path) (rate(http_response_size_bytes_bucket{...}[5m])))`                 |
+| Logs del servicio (extra)                | Loki                            | `{app="categorias-ubicaciones"}`                                                                                       |
+
+Arriba hay una fila de resumen: réplicas en UP, requests por segundo, latencia
+p95 y respuestas 4xx/5xx de los últimos 5 minutos.
+
+- **`rate()` en lugar del contador directo:** el contador solo crece y vuelve a
+  cero si el pod se reinicia. `rate()` lo convierte en requests por segundo y
+  maneja esos reinicios.
+- **p95:** el 95% de las requests tardó menos que ese valor. Muestra la
+  experiencia de casi todos los usuarios sin que un caso extremo la distorsione.
+
+#### Importarlo
+
+1. Abre Grafana (el usuario y la contraseña están en el Secret `grafana-secret`
+   de `monitoring_tools.yaml`):
+
+   ```bash
+   kubectl port-forward -n default service/grafana-service 3000:3000
+   # http://localhost:3000
+   ```
+
+2. **Dashboards → New → Import → Upload dashboard JSON file** y elige
+   `kubernetes/equipo_2/observabilidad/grafana_dashboard.json`. Luego **Import**.
+3. Arriba del dashboard hay dos selectores, **Prometheus** y **Loki**: toman
+   solos los datasources del stack de clase. El JSON no trae ningún ID de
+   datasource fijo, por eso funciona igual en la máquina de cualquiera.
+
+Los paneles necesitan tráfico para mostrar algo. Con el port-forward del API en
+el puerto 8000 (paso 2 de "Levantar todo desde cero"), haz algunas requests
+desde `/docs` o con los `curl` del paso 4: crear, listar, obtener, actualizar,
+eliminar, un GET del ID borrado (404) y un POST inválido (422). En unos 15
+segundos aparecen en el dashboard; el panel de status codes debe mostrar 200,
+201, 204, 404 y 422 por separado.
+
 ## CI/CD
 
 El workflow
 [`categorias_ubicaciones_build_image.yaml`](../../.github/workflows/categorias_ubicaciones_build_image.yaml)
-corre en cada push a la rama `equipo_2`: construye la imagen desde
+corre en cada push a la rama `equipo_2_p2`: construye la imagen desde
 `backend/products` para `linux/amd64` y `linux/arm64`, y la publica en GitHub
 Container Registry con tres tags:
 

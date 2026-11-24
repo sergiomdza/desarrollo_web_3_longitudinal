@@ -1,3 +1,4 @@
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -42,6 +43,7 @@ data:
 
     limits_config:
       retention_period: 168h
+
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -54,12 +56,15 @@ spec:
   resources:
     requests:
       storage: 10Gi
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: loki
   namespace: proyecto-final
+  labels:
+    app: loki
 spec:
   replicas: 1
   strategy:
@@ -75,6 +80,7 @@ spec:
       containers:
         - name: loki
           image: grafana/loki:3.7.8
+          imagePullPolicy: IfNotPresent
           args:
             - -config.file=/etc/loki/loki.yaml
             - -target=all
@@ -106,6 +112,7 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: loki-data
+
 ---
 apiVersion: v1
 kind: Service
@@ -119,6 +126,8 @@ spec:
     - name: http
       port: 3100
       targetPort: http
+  type: ClusterIP
+
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -138,6 +147,7 @@ rules:
   - apiGroups: [""]
     resources: ["pods/log"]
     verbs: ["get"]
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -152,6 +162,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: alloy-logs
+
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -160,7 +171,7 @@ metadata:
   namespace: proyecto-final
 data:
   config.alloy: |
-    // 1. Descubre pods vía la API de Kubernetes (requiere el RBAC alloy-logs).
+    // 1. Descubre los Pods de los microservicios en proyecto-final.
     discovery.kubernetes "backend" {
       role = "pod"
 
@@ -169,15 +180,13 @@ data:
         names = ["proyecto-final"]
       }
 
-      // Filtra por label: solo los pods de los 6 servicios backend.
       selectors {
         role  = "pod"
-        label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,notifications-backend)"
+        label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,audits-api,notifications-backend)"
       }
     }
 
-    // 2. Convierte metadatos internos (__meta_*) en labels visibles en Loki.
-    // Los __meta_* se descartan si no se copian aquí.
+    // 2. Convierte los metadatos de Kubernetes en labels de Loki.
     discovery.relabel "backend_logs" {
       targets = discovery.kubernetes.backend.targets
 
@@ -202,24 +211,27 @@ data:
       }
     }
 
-    // 3. Lee los logs de cada pod (vía API de Kubernetes) y los manda a loki.write.
+    // 3. Lee los logs de los Pods mediante la API de Kubernetes.
     loki.source.kubernetes "backend" {
       targets    = discovery.relabel.backend_logs.output
       forward_to = [loki.write.local.receiver]
     }
 
-    // 4. Envía los logs al endpoint de push de Loki.
+    // 4. Envía los logs a Loki dentro de proyecto-final.
     loki.write "local" {
       endpoint {
         url = "http://loki-service.proyecto-final.svc.cluster.local:3100/loki/api/v1/push"
       }
     }
+
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: alloy
   namespace: proyecto-final
+  labels:
+    app: alloy
 spec:
   replicas: 1
   strategy:
@@ -236,6 +248,7 @@ spec:
       containers:
         - name: alloy
           image: grafana/alloy:v1.21.0
+          imagePullPolicy: IfNotPresent
           args:
             - run
             - /etc/alloy/config.alloy

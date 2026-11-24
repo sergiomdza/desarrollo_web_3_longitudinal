@@ -1,0 +1,25 @@
+# Service HEADLESS (clusterIP: None) solo para que Prometheus encuentre los pods.
+#
+# Un Service normal tiene una IP virtual que balancea entre réplicas: si
+# Prometheus raspara esa IP, cada scrape caería en un pod distinto y los
+# contadores "saltarían" entre réplicas. Sin clusterIP, el DNS
+#   categorias-ubicaciones-metrics.proyecto-final.svc.cluster.local
+# devuelve la IP de CADA pod listo, y Prometheus (dns_sd_configs) raspa cada
+# uno por separado.
+#
+# El tráfico normal sigue entrando por categorias-ubicaciones-service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: categorias-ubicaciones-metrics
+  namespace: proyecto-final
+  labels:
+    app: categorias-ubicaciones
+spec:
+  clusterIP: None
+  selector:
+    app: categorias-ubicaciones
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
