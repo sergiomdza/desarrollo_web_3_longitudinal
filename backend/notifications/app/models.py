@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 TipoNotificacion = Literal[
@@ -24,6 +24,15 @@ EstadoNotificacion = Literal[
     "enviada",
     "leida",
     "fallida",
+    "cancelada",
+]
+
+TipoEventoPrestamo = Literal[
+    "prestamo_aprobado",
+    "prestamo_rechazado",
+    "prestamo_por_vencer",
+    "prestamo_vencido",
+    "prestamo_devuelto",
 ]
 
 
@@ -129,3 +138,56 @@ class NotificacionListResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class EventoPrestamo(BaseModel):
+    """Evento emitido por el módulo de Préstamos (Equipo #4)."""
+
+    evento: TipoEventoPrestamo
+
+    # 46 = 50 (máximo de "codigo") - 4 del prefijo "XXX-".
+    prestamo_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=46,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+
+    usuario_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+    )
+
+    activo_nombre: str | None = Field(
+        default=None,
+        max_length=150,
+    )
+
+    fecha_devolucion: datetime | None = None
+
+    motivo: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+    canal: CanalNotificacion = "in_app"
+
+    @field_validator("fecha_devolucion")
+    @classmethod
+    def asumir_utc(cls, value: datetime | None) -> datetime | None:
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value
+
+
+class EventoPrestamoResponse(BaseModel):
+    evento: TipoEventoPrestamo
+    prestamo_id: str
+    notificaciones: list[NotificacionResponse]
+    canceladas: int = 0
+
+
+class DespachoResponse(BaseModel):
+    despachadas: int

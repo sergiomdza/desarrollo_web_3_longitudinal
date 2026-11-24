@@ -1,0 +1,83 @@
+name: BACKEND notifications - Test, build and publish
+
+on:
+  push:
+    branches: ["equipo_6", "equipo_6_*"]
+    paths:
+      - "backend/notifications/**"
+      - ".github/workflows/cicd_equipo_6_notifications.yaml"
+  pull_request:
+    paths:
+      - "backend/notifications/**"
+      - ".github/workflows/cicd_equipo_6_notifications.yaml"
+
+env:
+  REGISTRY: ghcr.io
+  # Imagen que usa kubernetes/notifications/deployment.yaml.
+  IMAGE_NAME: ${{ github.repository_owner }}/notificaciones
+  POETRY_VERSION: "2.4.1"
+
+defaults:
+  run:
+    working-directory: backend/notifications
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Poetry
+        run: pip install "poetry==${POETRY_VERSION}"
+
+      - name: Install dependencies
+        run: poetry install --no-interaction
+
+      - name: Run tests
+        run: poetry run pytest -v
+
+  # Sólo la rama del equipo publica la imagen que usa Kubernetes.
+  build-and-push-image:
+    needs: test
+    if: github.event_name == 'push' && github.ref_name == 'equipo_6'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags: latest es la que usa el Deployment;
+      # el SHA del commit identifica cada versión.
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=long,prefix=
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend/notifications
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
