@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: proyecto-final
+  name: users-service
+spec:
+  selector:
+    app: users-backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  namespace: proyecto-final
+  name: db-secret
+type: Opaque
+stringData:
+  MONGO_URL: "mongodb://admin:web3@mongo-service:27017/?authSource=admin"
+  MONGO_DATABASE: "desarrollo_web_3"
+  SECRET_KEY: "7cf1d71f8a3651cb6dfb7bcddf3150d9b0cd10133d7f690afab0ebc14c94234c"
+  ALGORITHM: "HS256"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: proyecto-final
+  name: backend
+  labels:
+    app: users-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: users-backend
+  template:
+    metadata:
+      labels:
+        app: users-backend
+    spec:
+      containers:
+        - name: backend-fast
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal:equipo_5-latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          env:
+            - name: MONGO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MONGO_URL
+            - name: MONGO_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: MONGO_DATABASE
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: SECRET_KEY
+            - name: ALGORITHM
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: ALGORITHM
+            - name: ACCESS_TOKEN_EXPIRE_MINUTES
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: ACCESS_TOKEN_EXPIRE_MINUTES

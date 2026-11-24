@@ -1,0 +1,26 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Editores / SO ---
+.vscode/
+.idea/
+.kilo/
+.DS_Store
+
+# --- Entorno local ---
+.env
+*.log
+
+# --- Stack de observabilidad para pruebas locales (el oficial lo provee el profe) ---
+observabilidad-local/
+# Datos de runtime de MongoDB
+mongo_data/
+
+# Python
+*.pyc
