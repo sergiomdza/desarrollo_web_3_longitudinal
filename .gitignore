@@ -19,3 +19,8 @@ venv/
 
 # --- Stack de observabilidad para pruebas locales (el oficial lo provee el profe) ---
 observabilidad-local/
+# Datos de runtime de MongoDB
+mongo_data/
+
+# Python
+*.pyc
