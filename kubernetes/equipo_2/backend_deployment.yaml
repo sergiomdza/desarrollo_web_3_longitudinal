@@ -24,7 +24,10 @@ spec:
           image: ghcr.io/sergiomdza/categorias-ubicaciones:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 8000
+            # Puerto con nombre: lo usa el Service headless de métricas
+            # (observabilidad/metrics_service.yaml) como targetPort.
+            - name: http
+              containerPort: 8000
           envFrom:
             - configMapRef:
                 name: categorias-ubicaciones-config

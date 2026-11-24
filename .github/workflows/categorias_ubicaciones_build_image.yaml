@@ -3,7 +3,7 @@ name: Build & publish imagen Categorías & Ubicaciones
 on:
   push:
     branches:
-      - equipo_2
+      - equipo_2_p2
 
 permissions:
   contents: read

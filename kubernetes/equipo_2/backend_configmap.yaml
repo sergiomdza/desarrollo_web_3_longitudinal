@@ -11,3 +11,6 @@ data:
   CATEGORIAS_COLLECTION: categorias
   UBICACIONES_COLLECTION: ubicaciones
   ACTIVOS_COLLECTION: activos
+  # Logger (backend/products/logging_config.py)
+  SERVICE_NAME: categorias-ubicaciones   # campo "service" de cada log
+  LOG_LEVEL: INFO                        # nivel mínimo que se escribe
