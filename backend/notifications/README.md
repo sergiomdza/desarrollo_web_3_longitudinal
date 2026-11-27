@@ -65,7 +65,7 @@ Manifiestos en `kubernetes/notifications/` (ConfigMap, Secret, Deployment con
 `mongo-service` de `kubernetes/mongo_statefulset.yaml`.
 
 El Deployment usa la imagen que publica el CI,
-`ghcr.io/sergiomdza/notificaciones:latest`:
+`ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-notifications:main-latest`:
 
 ```bash
 # desde la raíz del repo

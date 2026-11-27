@@ -2,7 +2,6 @@ name: BACKEND notifications - Test, build and publish
 
 on:
   push:
-    branches: ["equipo_6", "equipo_6_*"]
     paths:
       - "backend/notifications/**"
       - ".github/workflows/cicd_equipo_6_notifications.yaml"
@@ -14,7 +13,7 @@ on:
 env:
   REGISTRY: ghcr.io
   # Imagen que usa kubernetes/notifications/deployment.yaml.
-  IMAGE_NAME: ${{ github.repository_owner }}/notificaciones
+  IMAGE_NAME: ${{ github.repository }}-notifications
   POETRY_VERSION: "2.4.1"
 
 defaults:
@@ -42,10 +41,10 @@ jobs:
       - name: Run tests
         run: poetry run pytest -v
 
-  # Sólo la rama del equipo publica la imagen que usa Kubernetes.
+  # Publica la imagen en cualquier push (después de pasar los tests).
   build-and-push-image:
     needs: test
-    if: github.event_name == 'push' && github.ref_name == 'equipo_6'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -63,21 +62,35 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Tags: latest es la que usa el Deployment;
-      # el SHA del commit identifica cada versión.
+      # Nombre de rama válido para un tag (minúsculas, "/" y otros caracteres -> "-").
+      - name: Branch name for tags
+        id: branch
+        run: echo "slug=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')" >> "$GITHUB_OUTPUT"
+
+      # Tags: <rama>-<número de ejecución> y <rama>-latest (la que usa el Deployment).
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=sha,format=long,prefix=
+            type=raw,value=${{ steps.branch.outputs.slug }}-${{ github.run_number }}
+            type=raw,value=${{ steps.branch.outputs.slug }}-latest
+
+      # QEMU + Buildx permiten publicar también linux/arm64 (Macs con Apple Silicon).
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: ./backend/notifications
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=notifications
+          cache-to: type=gha,scope=notifications,mode=max
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

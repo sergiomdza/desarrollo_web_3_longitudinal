@@ -39,7 +39,7 @@ spec:
       containers:
         - name: audits-api
           # Imagen publicada por .github/workflows/cicd_equipo_1_audits.yaml
-          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-audits:equipo_1-latest
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-audits:main-latest
           imagePullPolicy: Always
           ports:
             - name: http

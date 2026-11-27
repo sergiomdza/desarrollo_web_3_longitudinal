@@ -19,9 +19,9 @@ spec:
     spec:
       containers:
         - name: notificaciones
-          image: ghcr.io/sergiomdza/notificaciones:latest
-          # IfNotPresent: si la imagen se cargó con `kind load`, se usa esa.
-          imagePullPolicy: IfNotPresent
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-notifications:main-latest
+          # Always: cada pod nuevo jala el `main-latest` que publica el CI/CD.
+          imagePullPolicy: Always
 
           ports:
             - name: http

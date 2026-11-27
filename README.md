@@ -110,7 +110,7 @@ Luego abre http://localhost:8000/docs. En OpenLens: selecciona el contexto
 Services → categorias-ubicaciones-service** para hacer el port-forward con un clic (ícono de
 conector) en vez de usar la terminal.
 
-> La imagen `ghcr.io/sergiomdza/categorias-ubicaciones:latest` la publica el
+> La imagen `ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-products:main-latest` la publica el
 > pipeline para `linux/amd64` y `linux/arm64`, así que funciona igual en Macs
 > con Apple Silicon sin construir nada a mano.
 >

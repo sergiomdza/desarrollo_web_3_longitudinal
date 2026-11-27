@@ -43,7 +43,7 @@ spec:
     spec:
       containers:
         - name: backend-fast
-          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal:equipo_5-latest
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-users:main-latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

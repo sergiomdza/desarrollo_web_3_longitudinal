@@ -2,8 +2,9 @@ name: Build & publish imagen Categorías & Ubicaciones
 
 on:
   push:
-    branches:
-      - equipo_2_p2
+    paths:
+      - "backend/products/**"
+      - ".github/workflows/categorias_ubicaciones_build_image.yaml"
 
 permissions:
   contents: read
@@ -19,9 +20,10 @@ jobs:
       - name: Definir nombre de imagen en minúsculas
         id: image
         run: |
-          OWNER="${GITHUB_REPOSITORY_OWNER,,}"
-          echo "name=ghcr.io/${OWNER}/categorias-ubicaciones" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          # Nombre de rama válido para un tag (minúsculas, "/" y otros caracteres -> "-").
+          BRANCH="$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')"
+          echo "name=ghcr.io/${GITHUB_REPOSITORY,,}-products" >> "$GITHUB_OUTPUT"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
 
       - name: Login a GHCR
         uses: docker/login-action@v3
@@ -44,9 +46,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.short_sha }}
-            ${{ steps.image.outputs.name }}:${{ github.run_number }}
-            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.branch }}-${{ github.run_number }}
+            ${{ steps.image.outputs.name }}:${{ steps.image.outputs.branch }}-latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}

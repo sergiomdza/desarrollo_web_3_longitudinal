@@ -177,7 +177,7 @@ data:
 
       selectors {
         role  = "pod"
-        label = "app in (products-backend,users-backend,requests-backend,reports-backend,audits-backend,audits-api,notifications-backend)"
+        label = "app in (categorias-ubicaciones,products-backend,users-backend,requests-backend,reportes-backend,reports-backend,audits-backend,audits-api,notifications-backend)"
       }
     }
 

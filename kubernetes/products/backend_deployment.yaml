@@ -1,6 +1,6 @@
 # Usa la imagen que publica el pipeline en GHCR (linux/amd64 y linux/arm64).
-# imagePullPolicy: Always -> cada pod nuevo jala el `latest` más reciente.
-# Tras cada push a equipo_2, cuando termine el workflow, corran:
+# imagePullPolicy: Always -> cada pod nuevo jala el `main-latest` más reciente.
+# Tras cada push a main, cuando termine el workflow, corran:
 #   kubectl rollout restart deployment/categorias-ubicaciones-api -n proyecto-final
 apiVersion: apps/v1
 kind: Deployment
@@ -21,7 +21,7 @@ spec:
     spec:
       containers:
         - name: categorias-ubicaciones
-          image: ghcr.io/sergiomdza/categorias-ubicaciones:latest
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-products:main-latest
           imagePullPolicy: Always
           ports:
             # Puerto con nombre: lo usa el Service headless de métricas

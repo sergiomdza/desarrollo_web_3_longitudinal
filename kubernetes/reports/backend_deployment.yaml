@@ -51,7 +51,7 @@ spec:
     spec:
       containers:
         - name: reportes-backend
-          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal:equipo_3-latest
+          image: ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-reports:main-latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8000

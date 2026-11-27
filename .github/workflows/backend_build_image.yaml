@@ -1,14 +1,16 @@
 name: BACKEND REPORTS - Create and publish a Docker image
 
-# Se ejecuta cada vez que haces push a la rama de tu equipo.
+# Se ejecuta en cualquier rama cuando cambia el código del servicio (o este workflow).
 on:
   push:
-    branches: ["equipo_3"]
+    paths:
+      - "backend/reports/**"
+      - ".github/workflows/backend_build_image.yaml"
 
 # Registro de contenedores de GitHub y nombre de la imagen (owner/repo).
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ${{ github.repository }}-reports
 
 jobs:
   build-and-push-image:
@@ -30,6 +32,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Nombre de rama válido para un tag (minúsculas, "/" y otros caracteres -> "-").
+      - name: Branch name for tags
+        id: branch
+        run: echo "slug=$(echo "$GITHUB_REF_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')" >> "$GITHUB_OUTPUT"
+
       # Calcula los tags: <rama>-<número de ejecución> y <rama>-latest
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -37,14 +44,24 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ github.ref_name }}-${{ github.run_number }}
-            type=raw,value=${{ github.ref_name }}-latest
+            type=raw,value=${{ steps.branch.outputs.slug }}-${{ github.run_number }}
+            type=raw,value=${{ steps.branch.outputs.slug }}-latest
+
+      # QEMU + Buildx permiten publicar también linux/arm64 (Macs con Apple Silicon).
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: ./backend/reports
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=reports
+          cache-to: type=gha,scope=reports,mode=max
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

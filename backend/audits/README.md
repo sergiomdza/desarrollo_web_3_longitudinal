@@ -177,14 +177,14 @@ El pipeline construye la imagen Docker del módulo y la publica en GitHub Contai
 ghcr.io/sergiomdza/desarrollo_web_3_longitudinal-audits
 ```
 
-Las imágenes utilizan los tags:
+Las imágenes utilizan los tags (`<rama>` en minúsculas, con `/` convertido a `-`):
 
 ```text
-equipo_1-<run>
-equipo_1-latest
+<rama>-<run>
+<rama>-latest
 ```
 
-El Deployment utiliza `equipo_1-latest` con:
+El Deployment utiliza `main-latest` con:
 
 ```yaml
 imagePullPolicy: Always
