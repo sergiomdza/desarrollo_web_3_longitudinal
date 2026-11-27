@@ -7,6 +7,9 @@ metadata:
     app: prometheus
 spec:
   replicas: 1
+  # Recreate: el TSDB de Prometheus no admite dos pods sobre el mismo PVC.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: prometheus
@@ -130,6 +133,10 @@ metadata:
     app: grafana
 spec:
   replicas: 1
+  # Recreate: Grafana guarda un SQLite en el PVC; con RollingUpdate el pod nuevo y el
+  # viejo lo abren a la vez (p. ej. en un rollout restart) y puede corromperse.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: grafana
