@@ -48,8 +48,8 @@ esperar() {
 
 # Importa un dashboard en Grafana. $1=archivo json  $2=uid del datasource Prometheus
 importar_dashboard() {
-  local archivo="$1" prom_uid="$2" body code
-  body="$(python3 - "$archivo" "$prom_uid" <<'PY'
+  local archivo="$1" prom_uid="$2" body resp code out
+  body="$("$PY" - "$archivo" "$prom_uid" <<'PY'
 import json, sys
 raw = open(sys.argv[1], encoding="utf-8").read()
 # El dashboard de requests trae un uid de datasource fijo de otro Grafana.
@@ -57,22 +57,32 @@ raw = raw.replace("PBFA97CFB590B2093", sys.argv[2])
 print(json.dumps({"dashboard": json.loads(raw), "overwrite": True}))
 PY
 )"
-  code="$(printf '%s' "$body" | curl -s -o /tmp/grafana_import.out -w '%{http_code}' \
+  # La respuesta y el código HTTP van juntos (sin archivos temporales: /tmp no
+  # existe para el Python nativo de Windows).
+  resp="$(printf '%s' "$body" | curl -s -w '\n%{http_code}' \
     -u "$GRAFANA_USER:$GRAFANA_PASS" -H 'Content-Type: application/json' \
     -X POST "http://localhost:$GRAFANA_LOCAL_PORT/api/dashboards/db" --data-binary @-)"
+  code="${resp##*$'\n'}"
+  out="${resp%$'\n'*}"
   if [ "$code" = "200" ]; then
-    echo "  OK  $(basename "$archivo") -> $(python3 -c 'import json;print(json.load(open("/tmp/grafana_import.out")).get("url",""))')"
+    echo "  OK  $(basename "$archivo") -> $(printf '%s' "$out" | "$PY" -c 'import json,sys;print(json.load(sys.stdin).get("url",""))' | tr -d '\r')"
   else
-    aviso "Falló $(basename "$archivo") (HTTP $code): $(cat /tmp/grafana_import.out)"
+    aviso "Falló $(basename "$archivo") (HTTP $code): $out"
     FALLOS+=("dashboard/$(basename "$archivo")")
   fi
 }
 
 # --- 0. Verificaciones -------------------------------------------------------
 paso "Verificando herramientas"
-for cmd in docker kind kubectl curl python3; do
+for cmd in docker kind kubectl curl; do
   command -v "$cmd" >/dev/null || { echo "Falta '$cmd' en el PATH"; exit 1; }
 done
+# En Windows el ejecutable suele llamarse "python" (o "py"); "python3" puede ser un stub de la Microsoft Store.
+PY=""
+for cmd in python3 python py; do
+  if "$cmd" -c 'import sys' >/dev/null 2>&1; then PY="$cmd"; break; fi
+done
+[ -n "$PY" ] || { echo "Falta Python 3 en el PATH (python3, python o py)"; exit 1; }
 docker info >/dev/null 2>&1 || { echo "Docker no está corriendo. Abre Docker Desktop y reintenta."; exit 1; }
 
 # --- 1. Cluster y namespace --------------------------------------------------
@@ -143,11 +153,12 @@ done
 if [ "$ok" = "1" ]; then
   PROM_UID="$(curl -s -u "$GRAFANA_USER:$GRAFANA_PASS" \
     "http://localhost:$GRAFANA_LOCAL_PORT/api/datasources/name/Prometheus" \
-    | python3 -c 'import json,sys;print(json.load(sys.stdin)["uid"])')"
+    | "$PY" -c 'import json,sys;print(json.load(sys.stdin)["uid"])' | tr -d '\r')"
   importar_dashboard "$K8S/products/observabilidad/grafana_dashboard.json"      "$PROM_UID"
   importar_dashboard "$K8S/requests/grafana-dashboard.json"                     "$PROM_UID"
   importar_dashboard "$K8S/audits/grafana/audits-dashboard.json"                "$PROM_UID"
   importar_dashboard "$K8S/notifications/grafana/notificaciones-dashboard.json" "$PROM_UID"
+  importar_dashboard "$K8S/k6/grafana/k6-dashboard.json"                        "$PROM_UID"
 else
   aviso "Grafana no respondió por el port-forward; dashboards no importados."
   FALLOS+=("grafana-port-forward")
