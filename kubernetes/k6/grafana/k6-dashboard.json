@@ -1,0 +1,126 @@
+{
+  "uid": "k6-notificaciones",
+  "title": "K6 - Pruebas de carga (notificaciones)",
+  "tags": ["k6", "carga"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "label": "Datasource",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {}
+      },
+      {
+        "name": "testid",
+        "label": "Prueba",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${datasource}" },
+        "query": { "query": "label_values(k6_vus, testid)", "refId": "testid" },
+        "includeAll": true,
+        "allValue": ".*",
+        "refresh": 2,
+        "current": {}
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Usuarios virtuales (VUs)",
+      "description": "Sigue la forma de los stages del script load.js.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (testid) (k6_vus{testid=~\"$testid\"})",
+          "legendFormat": "{{testid}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Requests por segundo",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (testid) (rate(k6_http_reqs_total{testid=~\"$testid\"}[30s]))",
+          "legendFormat": "{{testid}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Latencia p95 y p99 (ms)",
+      "description": "Si la unidad no coincide (valores en segundos), cambia la unidad del panel a 's'.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (__name__, testid) ({__name__=~\"k6_http_req_duration(_seconds)?_p(95|99)\", testid=~\"$testid\"})",
+          "legendFormat": "{{__name__}} {{testid}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Latencia p95 por endpoint (ms)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (name) ({__name__=~\"k6_http_req_duration(_seconds)?_p95\", testid=~\"$testid\", name!=\"\"})",
+          "legendFormat": "{{name}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Requests fallidos (ratio)",
+      "description": "http_req_failed: 0 = ningún error, 1 = todos fallan.",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (testid) (k6_http_req_failed_rate{testid=~\"$testid\"})",
+          "legendFormat": "{{testid}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Checks exitosos (ratio)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (testid) (k6_checks_rate{testid=~\"$testid\"})",
+          "legendFormat": "{{testid}}"
+        }
+      ]
+    }
+  ]
+}

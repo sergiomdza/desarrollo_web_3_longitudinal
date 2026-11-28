@@ -1,0 +1,54 @@
+# Job de K6: SMOKE TEST. Lo lanza kubernetes/k6/correr_k6.sh smoke
+# (los scripts JS llegan por el ConfigMap "k6-scripts" que crea ese script).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-smoke
+  namespace: proyecto-final
+  labels:
+    app: k6
+    test: smoke
+spec:
+  backoffLimit: 0 # una prueba que falla no se reintenta
+  template:
+    metadata:
+      labels:
+        app: k6
+        test: smoke
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:1.8.3
+          # -o envía las métricas a Prometheus; --tag testid=... las etiqueta
+          # para poder separar smoke y load en Grafana.
+          command:
+            - k6
+            - run
+            - -o
+            - experimental-prometheus-rw
+            - --tag
+            - testid=smoke
+            - /scripts/smoke.js
+          env:
+            - name: BASE_URL
+              value: http://notificaciones.proyecto-final.svc.cluster.local
+            - name: K6_PROMETHEUS_RW_SERVER_URL
+              value: http://prometheus-service.proyecto-final.svc.cluster.local:9090/api/v1/write
+            # Estadísticos de las métricas de tiempo que se exportan como series.
+            - name: K6_PROMETHEUS_RW_TREND_STATS
+              value: "avg,p(95),p(99),max"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: k6-scripts

@@ -22,6 +22,12 @@ spec:
         - name: prometheus
           image: prom/prometheus:v3.5.0
           imagePullPolicy: IfNotPresent
+          # Al definir args hay que repetir los del imagen (config y TSDB);
+          # el flag de remote-write permite que K6 envíe sus métricas a Prometheus.
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-remote-write-receiver
           ports:
             - containerPort: 9090
           volumeMounts:
