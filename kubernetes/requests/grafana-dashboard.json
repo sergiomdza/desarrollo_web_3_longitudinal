@@ -18,6 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -446,29 +447,48 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "fieldConfig": {
         "defaults": {},
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 10,
         "w": 24,
         "x": 0,
         "y": 16
       },
       "id": 5,
       "options": {
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        },
-        "content": "",
-        "mode": "markdown"
+        "dedupStrategy": "none",
+        "enableInfiniteScrolling": false,
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
       },
       "pluginVersion": "12.1.1",
-      "title": "Panel 5",
-      "type": "text"
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "direction": "backward",
+          "editorMode": "code",
+          "expr": "{app=\"requests-backend\"} | json",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Panel 5: Logs",
+      "type": "logs"
     }
   ],
   "preload": false,
@@ -489,5 +509,5 @@
   "timezone": "browser",
   "title": "Préstamos / Solicitudes (requests-backend)",
   "uid": "2aa34684-4a5e-4bc9-b373-feb3a09ce2d4",
-  "version": 8
+  "version": 11
 }
